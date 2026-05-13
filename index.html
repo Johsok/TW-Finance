@@ -1,0 +1,1155 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Johsok 台股財報小助手</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <style>
+        /* --- 全局深色主題設定 --- */
+        body { 
+            background-color: #121212; 
+            color: #e0e0e0;             
+            padding-top: 30px; 
+            padding-bottom: 50px;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+        
+        /* --- 卡片美化 --- */
+        .card { 
+            background-color: #1e1e1e; 
+            border-radius: 16px; 
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5); 
+            border: 1px solid #333;       
+            display: inline-block;
+            overflow: visible !important; 
+            max-width: 100%;
+        }
+        
+        /* --- 自訂標題與篩選器區域 --- */
+        .card-header-custom {
+            background-color: #1e1e1e;
+            padding: 15px 25px;       /* 調整內距讓視覺平衡 */
+            border-bottom: 1px solid #333;
+            display: flex;
+            justify-content: center; /* 關鍵：讓左、中、右三塊平均分散 */
+            align-items: center;      /* 關鍵：垂直置中對齊 */
+            flex-wrap: wrap;          /* 小螢幕時自動換行 */
+            gap: 20px;
+            border-radius: 16px 16px 0 0; 
+        }
+
+
+
+        .header-left h3 {
+            margin-bottom: 0;
+            color: #ffffff;
+            letter-spacing: 0.5px;
+            font-weight: 700;
+        }
+
+        /* --- 右側區塊群組 (休市資訊 + 篩選器) --- */
+        .header-right-group {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start; /* 讓內容靠左對齊 */
+            gap: 8px; /* 上下間距 */
+        }
+
+        /* --- 休市小方格樣式 --- */
+        .holiday-widget {
+            display: inline-flex;
+            align-items: center;
+            background-color: #252525;
+            border: 1px solid #444;
+            border-radius: 6px;
+            padding: 3px 8px;
+            font-size: 0.75rem;
+            width: fit-content;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .holiday-icon {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding-right: 8px;
+            margin-right: 8px;
+            border-right: 1px solid #555;
+            color: #ff6b6b; /* 休市警示色 */
+            font-weight: 800;
+            line-height: 1.1;
+            font-size: 0.8rem;
+        }
+
+        .holiday-info {
+            display: flex;
+            flex-direction: column;
+            line-height: 1.3;
+            color: #aaa;
+            font-family: 'Consolas', monospace;
+            text-align: left;
+        }
+        
+        .holiday-date { color: #fff; font-weight: 600; letter-spacing: 0.5px; }
+
+        /* --- 標籤樣式 --- */
+        .update-badge {
+            background-color: #333;
+            color: #aaa;
+            border: 1px solid #444;
+            border-radius: 20px;
+            padding: 2px 10px;
+            font-weight: 500;
+            font-size: 0.75rem;
+            display: inline-block;
+        }
+
+        .rate-badge-container {
+            border: 1px solid #6c757d; 
+            background-color: rgba(255, 255, 255, 0.03); 
+            color: #ced4da; 
+            border-radius: 20px;
+            padding: 2px 12px; 
+            font-weight: 500;
+            font-size: 0.75rem;
+            display: inline-block;
+            margin-top: 4px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .rate-gold-text {
+            color: #ffc107; 
+            font-weight: 800; 
+            font-family: 'Consolas', 'Monaco', monospace; 
+            font-size: 0.9rem; 
+            letter-spacing: 0.5px;
+            text-shadow: 0 0 10px rgba(255, 193, 7, 0.4); 
+            margin: 0 4px; 
+        }
+
+        .filter-section {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: #2a2a2a;
+            padding: 4px 8px;
+            border-radius: 8px;
+            border: 1px solid #444;
+        }
+
+        .filter-section label {
+            font-size: 0.75rem;
+            color: #aaa;
+            margin-right: 2px;
+        }
+
+        .filter-input {
+            background-color: #121212;
+            border: 1px solid #444;
+            color: #fff;
+            border-radius: 4px;
+            padding: 2px 4px;
+            font-size: 0.75rem;
+            color-scheme: dark; 
+        }
+
+        /* --- 頂部極光進度條 --- */
+        #scroll-progress-bar {
+            position: fixed;
+            top: 0; left: 0; width: 0%; height: 4px;
+            background: linear-gradient(90deg, #00f260, #0575e6); 
+            z-index: 99999;
+            transition: width 0.15s ease-out;
+            box-shadow: 0 0 15px rgba(5, 117, 230, 0.7); 
+            pointer-events: none;
+        }
+
+        /* --- 載入狀態提示 --- */
+        #loading-indicator {
+            position: fixed;
+            bottom: 20px; right: 20px;
+            background: rgba(33, 37, 41, 0.9);
+            color: #00e676;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            border: 1px solid #444;
+            z-index: 10000;
+            display: none; /* 預設隱藏，JS控制 */
+            transition: opacity 0.3s;
+        }
+        
+        /* --- 表格容器設定 (電腦版維持 visible) --- */
+        .table-responsive { 
+            overflow: visible !important; 
+            contain: layout style;
+        }
+
+        .table { 
+            font-size: 0.85rem; 
+            margin-bottom: 0;
+            color: #d0d0d0; 
+            border-collapse: separate; 
+            border-spacing: 0;
+            content-visibility: auto; 
+            contain-intrinsic-size: 1000px;
+        }
+        
+        .table thead th {
+            position: sticky; 
+            top: 0;             
+            z-index: 1020;
+            background: linear-gradient(180deg, #424242 0%, #262626 100%);
+            color: #ffffff;
+            font-size: 0.9rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 15px 12px;
+            border-bottom: 3px solid #555;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.4); 
+            white-space: nowrap;
+            cursor: pointer;
+            user-select: none;
+        }
+        
+        .table thead th:first-child { border-top-left-radius: 0; } 
+        .table thead th:last-child { border-top-right-radius: 0; }
+
+        .table thead th:hover {
+            background: linear-gradient(180deg, #505050 0%, #303030 100%);
+        }
+
+        /* --- 篩選連結 --- */
+        .filter-link {
+            color: #ffca2c; 
+            border-bottom: 1px dashed #ffca2c; 
+            transition: all 0.2s;
+            position: relative;
+            z-index: 1030; 
+            display: inline-block;
+        }
+        
+        .filter-link:hover {
+            color: #fff;
+            border-bottom: 1px solid #fff;
+            text-shadow: 0 0 8px rgba(255, 202, 44, 0.8);
+        }
+
+        .filter-link.active {
+            color: #00e676; 
+            border-bottom: 1px solid #00e676;
+        }
+
+        /* --- Popup 樣式 --- */
+        .filter-popup {
+            display: none; 
+            position: absolute;
+            top: 100%; 
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #2b2b2b;
+            border: 1px solid #555;
+            padding: 12px;
+            border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.8);
+            z-index: 9999; 
+            min-width: 170px;
+            text-align: left;
+            margin-top: 5px;
+            cursor: default; 
+        }
+
+        .filter-popup::before {
+            content: '';
+            position: absolute;
+            top: -6px; left: 50%;
+            transform: translateX(-50%);
+            border-width: 0 6px 6px 6px;
+            border-style: solid;
+            border-color: transparent transparent #555 transparent;
+        }
+
+        .popup-row { margin-bottom: 8px; }
+        .popup-checkbox-row { margin-bottom: 6px; display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: #ddd; }
+        .popup-checkbox-row input[type="checkbox"] { cursor: pointer; accent-color: #0d6efd; transform: scale(1.1); }
+        .popup-label { font-size: 0.75rem; color: #aaa; margin-bottom: 2px; display: block; }
+
+        .popup-input {
+            width: 100%;
+            background: #121212;
+            border: 1px solid #444;
+            border-radius: 4px;
+            padding: 4px 6px;
+            font-size: 0.85rem;
+            color: #fff;
+        }
+        .popup-input:focus { outline: none; border-color: #4dabf7; }
+
+        .popup-actions { display: flex; justify-content: space-between; gap: 8px; margin-top: 10px; }
+
+        .btn-popup {
+            border: none;
+            padding: 3px 10px;
+            font-size: 0.75rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .btn-popup-ok { background-color: #0d6efd; color: white; flex: 1; }
+        .btn-popup-ok:hover { background-color: #0b5ed7; }
+        .btn-popup-clear { background-color: #444; color: #ccc; }
+        .btn-popup-clear:hover { background-color: #555; color: white; }
+
+        .sort-icon { font-size: 0.8em; color: #888; margin-left: 5px; }
+
+        /* --- 即時股價專屬樣式 --- */
+        .static-price {
+            font-family: 'Consolas', monospace;
+            font-weight: 600;
+            color: #00e676; 
+        }
+
+        .table tbody td {
+            padding: 12px 14px;
+            border-bottom: 1px solid #2d2d2d; 
+            border-right: 1px solid #2d2d2d;  
+            white-space: nowrap;
+            vertical-align: middle;
+            background-color: #1e1e1e; 
+        }
+        .table tbody td:last-child { border-right: none; }
+        .table tbody tr:last-child td { border-bottom: none; }
+        .table-hover tbody tr:hover td { background-color: #2a2a2a; color: #fff; transition: all 0.2s ease; }
+
+        .positive { 
+            color: #00e676 !important; 
+            font-weight: 700;
+            background-color: rgba(0, 230, 118, 0.1); 
+            border-radius: 4px;
+            padding: 2px 6px;
+            box-shadow: 0 0 5px rgba(0, 230, 118, 0.2); 
+        }
+        
+        .stock-link { text-decoration: none; color: #4dabf7; font-weight: 600; transition: color 0.2s; }
+        .stock-link:hover { color: #74c0fc; text-decoration: underline; }
+        .stock-link.positive { color: #00e676 !important; }
+
+        .wf-btn {
+            display: inline-block;
+            color: #6c757d; 
+            text-decoration: none;
+            font-size: 0.8rem;
+            margin-left: 3px;
+            padding: 1px 6px;
+            border-radius: 4px;
+            transition: all 0.2s ease-in-out;
+            border: 1px solid transparent; 
+        }
+        .wf-btn.w-link:hover { background-color: #0d6efd; color: #ffffff !important; font-weight: 800; box-shadow: 0 0 8px rgba(13, 110, 253, 0.6); }
+        .wf-btn.g-link:hover { background-color: #198754; color: #ffffff !important; font-weight: 800; box-shadow: 0 0 8px rgba(25, 135, 84, 0.6); }
+
+        .date-link { color: #aaa; text-decoration: none; font-weight: 500; margin-right: 5px; transition: all 0.2s; }
+        .date-link:hover { color: #fff; text-decoration: underline; }
+        
+        .text-secondary-dark { color: #6c757d; }
+        .time-bmo { color: #ffca2c; font-weight: 600; } 
+        .time-amc { color: #0dcaf0; font-weight: 600; } 
+        .time-unk { color: #adb5bd; } 
+
+        .d-none-custom { display: none !important; }
+
+        /* --- 關鍵加速：初始隱藏類別 --- */
+        .pending-row { display: none; content-visibility: hidden; }
+
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-track { background: #121212; }
+        ::-webkit-scrollbar-thumb { background: #444; border-radius: 5px; }
+        ::-webkit-scrollbar-thumb:hover { background: #555; }
+
+        /* =========================================
+            手機版響應式 & 凍結欄位設定
+            只在螢幕寬度小於 768px 時生效
+            ========================================= */
+        @media (max-width: 768px) {
+            body {
+                padding-top: 10px;
+                padding-bottom: 20px;
+            }
+
+            /* 手機版需開啟橫向捲軸 */
+            .table-responsive {
+                overflow-x: auto !important;
+                border-radius: 0 0 16px 16px;
+            }
+            
+            .header-left h3 {
+                font-size: 1.25rem;
+            }
+
+            /* 手機版字體縮小 */
+            .table {
+                font-size: 0.75rem; /* 12px */
+            }
+
+            .table tbody td, .table thead th {
+                padding: 8px 6px; 
+            }
+
+            .wf-btn {
+                font-size: 0.7rem;
+                padding: 0 4px;
+            }
+
+            /* --- 凍結前兩欄 (日期 & 代碼) --- */
+            
+            /* 第 1 欄：日期 */
+            .table thead th:nth-child(1),
+            .table tbody td:nth-child(1) {
+                position: sticky;
+                left: 0;
+                z-index: 1022; 
+                min-width: 90px; 
+                background-color: #1e1e1e; 
+                border-right: 2px solid #333; 
+            }
+
+            .table thead th:nth-child(1) {
+                background: linear-gradient(180deg, #424242 0%, #262626 100%);
+                z-index: 1030; /* Header 層級最高 */
+            }
+
+            /* 第 2 欄：代碼 */
+            .table thead th:nth-child(2),
+            .table tbody td:nth-child(2) {
+                position: sticky;
+                left: 90px; /* 接在日期欄後面 */
+                z-index: 1022;
+                min-width: 70px;
+                background-color: #1e1e1e;
+                border-right: 2px solid #444; /* 加強第二欄右側邊界 */
+                box-shadow: 4px 0 8px rgba(0,0,0,0.3); /* 增加陰影 */
+            }
+
+            .table thead th:nth-child(2) {
+                background: linear-gradient(180deg, #424242 0%, #262626 100%);
+                z-index: 1030;
+            }
+
+            /* 修正 Hover 狀態下的背景色，避免透明 */
+            .table-hover tbody tr:hover td:nth-child(1),
+            .table-hover tbody tr:hover td:nth-child(2) {
+                background-color: #2a2a2a;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="scroll-progress-bar"></div>
+    <div id="loading-indicator">🔄 正在載入剩餘資料...</div>
+
+    <div class="container-fluid">
+        <div class="d-flex justify-content-center">
+            <div class="card">
+                <div class="card-header-custom">
+                    <h3 class="mb-0 text-white fw-bold" style="letter-spacing: 0.5px;">🚀 Johsok 台股財報小助手</h3>
+
+                    <div class="d-flex flex-column align-items-center gap-1"> 
+                        <span class="update-badge" id="last-update-badge">資料更新中...</span>
+                        <span class="rate-badge-container" title="FinMind 證券別 + Yahoo Finance 財測／股價">
+                            幣別：<span class="rate-gold-text">新台幣</span>（EPS／股價／市值）
+                        </span>
+                    </div>
+
+                    <div class="header-right-group">
+                        <div class="holiday-widget">
+                            <div class="holiday-icon">
+                                <div>休</div>
+                                <div>市</div>
+                            </div>
+                            <div class="holiday-info">
+                                <div id="holiday-tw">台：--.--.--(週)、--.--.--(週)</div>
+                                <div id="holiday-us">美：--.--.--(週)、--.--.--(週)</div>
+                            </div>
+                        </div>
+
+                        <div class="filter-section">
+                            <label for="startDate">📅 查詢範圍：</label>
+                            <input type="date" id="startDate" class="filter-input" title="開始日期">
+                            <span style="color: #666;">~</span>
+                            <input type="date" id="endDate" class="filter-input" title="結束日期">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle w-auto text-center" id="stockTable">
+                        <thead>
+                            <tr>
+                                <th onclick="sortTable(0)">
+                                    <span class="filter-link" id="filter-btn-0" onclick="toggleFilterPanel(event, 0)">日期</span>
+                                    <span class="sort-icon">⇅</span>
+                                    <div class="filter-popup" id="popup-0" onclick="event.stopPropagation()">
+                                        <div class="popup-row">
+                                            <span class="popup-label">起始日期 (>=)</span>
+                                            <input type="date" class="popup-input" id="filter-start-0">
+                                        </div>
+                                        <div class="popup-row">
+                                            <span class="popup-label">結束日期 (<=)</span>
+                                            <input type="date" class="popup-input" id="filter-end-0">
+                                        </div>
+                                        <div class="popup-actions">
+                                            <button class="btn-popup btn-popup-clear" onclick="clearFilter(0)">清除</button>
+                                            <button class="btn-popup btn-popup-ok" onclick="confirmFilter(0)">篩選</button>
+                                        </div>
+                                    </div>
+                                </th>
+                                <th onclick="sortTable(1)">
+                                    <span class="filter-link" id="filter-btn-1" onclick="toggleFilterPanel(event, 1)">代碼</span>
+                                    <span class="sort-icon">⇅</span>
+                                    <div class="filter-popup" id="popup-1" onclick="event.stopPropagation()">
+                                         <div class="popup-row">
+                                            <span class="popup-label">輸入代碼</span>
+                                            <input type="text" class="popup-input" id="min-1" placeholder="Search...">
+                                        </div>
+                                        <div class="popup-actions">
+                                            <button class="btn-popup btn-popup-clear" onclick="clearFilter(1)">清除</button>
+                                            <button class="btn-popup btn-popup-ok" onclick="confirmFilter(1)">篩選</button>
+                                        </div>
+                                    </div>
+                                </th>
+                                <th onclick="sortTable(2)">
+                                    <span class="filter-link" id="filter-btn-2" onclick="toggleFilterPanel(event, 2)">時間</span>
+                                    <span class="sort-icon">⇅</span>
+                                    <div class="filter-popup" id="popup-2" onclick="event.stopPropagation()">
+                                        <div class="popup-checkbox-row">
+                                            <input type="checkbox" id="chk-bmo-2" value="盤前">
+                                            <label for="chk-bmo-2">盤前</label>
+                                        </div>
+                                        <div class="popup-checkbox-row">
+                                            <input type="checkbox" id="chk-amc-2" value="盤後">
+                                            <label for="chk-amc-2">盤後</label>
+                                        </div>
+                                        <div class="popup-checkbox-row">
+                                            <input type="checkbox" id="chk-other-2" value="other">
+                                            <label for="chk-other-2" title="未定或特定時間">不確定</label>
+                                        </div>
+                                        <div class="popup-actions">
+                                            <button class="btn-popup btn-popup-clear" onclick="clearFilter(2)">清除</button>
+                                            <button class="btn-popup btn-popup-ok" onclick="confirmFilter(2)">篩選</button>
+                                        </div>
+                                    </div>
+                                </th>
+                                <th onclick="sortTable(3)"><span class="filter-link" id="filter-btn-3" onclick="toggleFilterPanel(event, 3)">市值</span><span class="sort-icon">⇅</span>
+                                    <div class="filter-popup" id="popup-3" onclick="event.stopPropagation()">
+                                        <div class="popup-row"><span class="popup-label">最小值</span><input type="number" class="popup-input" id="min-3"></div>
+                                        <div class="popup-row"><span class="popup-label">最大值</span><input type="number" class="popup-input" id="max-3"></div>
+                                        <div class="popup-actions"><button class="btn-popup btn-popup-clear" onclick="clearFilter(3)">清除</button><button class="btn-popup btn-popup-ok" onclick="confirmFilter(3)">篩選</button></div>
+                                    </div>
+                                </th>
+                                <th onclick="sortTable(4)"><span class="filter-link" id="filter-btn-4" onclick="toggleFilterPanel(event, 4)">P/E</span><span class="sort-icon">⇅</span>
+                                    <div class="filter-popup" id="popup-4" onclick="event.stopPropagation()">
+                                        <div class="popup-row"><span class="popup-label">最小值</span><input type="number" class="popup-input" id="min-4"></div>
+                                        <div class="popup-row"><span class="popup-label">最大值</span><input type="number" class="popup-input" id="max-4"></div>
+                                        <div class="popup-actions"><button class="btn-popup btn-popup-clear" onclick="clearFilter(4)">清除</button><button class="btn-popup btn-popup-ok" onclick="confirmFilter(4)">篩選</button></div>
+                                    </div>
+                                </th>
+                                <th onclick="sortTable(5)"><span class="filter-link" id="filter-btn-5" onclick="toggleFilterPanel(event, 5)">P/B</span><span class="sort-icon">⇅</span>
+                                    <div class="filter-popup" id="popup-5" onclick="event.stopPropagation()">
+                                        <div class="popup-row"><span class="popup-label">最小值</span><input type="number" class="popup-input" id="min-5"></div>
+                                        <div class="popup-row"><span class="popup-label">最大值</span><input type="number" class="popup-input" id="max-5"></div>
+                                        <div class="popup-actions"><button class="btn-popup btn-popup-clear" onclick="clearFilter(5)">清除</button><button class="btn-popup btn-popup-ok" onclick="confirmFilter(5)">篩選</button></div>
+                                    </div>
+                                </th>
+                                <th onclick="sortTable(6)"><span class="filter-link" id="filter-btn-6" onclick="toggleFilterPanel(event, 6)">預估</span><span class="sort-icon">⇅</span>
+                                    <div class="filter-popup" id="popup-6" onclick="event.stopPropagation()">
+                                        <div class="popup-row"><span class="popup-label">最小值</span><input type="number" class="popup-input" id="min-6"></div>
+                                        <div class="popup-row"><span class="popup-label">最大值</span><input type="number" class="popup-input" id="max-6"></div>
+                                        <div class="popup-actions"><button class="btn-popup btn-popup-clear" onclick="clearFilter(6)">清除</button><button class="btn-popup btn-popup-ok" onclick="confirmFilter(6)">篩選</button></div>
+                                    </div>
+                                </th>
+                                <th onclick="sortTable(7)"><span class="filter-link" id="filter-btn-7" onclick="toggleFilterPanel(event, 7)">上季</span><span class="sort-icon">⇅</span>
+                                    <div class="filter-popup" id="popup-7" onclick="event.stopPropagation()">
+                                        <div class="popup-row"><span class="popup-label">最小值</span><input type="number" class="popup-input" id="min-7"></div>
+                                        <div class="popup-row"><span class="popup-label">最大值</span><input type="number" class="popup-input" id="max-7"></div>
+                                        <div class="popup-actions"><button class="btn-popup btn-popup-clear" onclick="clearFilter(7)">清除</button><button class="btn-popup btn-popup-ok" onclick="confirmFilter(7)">篩選</button></div>
+                                    </div>
+                                </th>
+                                <th onclick="sortTable(8)"><span class="filter-link" id="filter-btn-8" onclick="toggleFilterPanel(event, 8)">去年</span><span class="sort-icon">⇅</span>
+                                    <div class="filter-popup" id="popup-8" onclick="event.stopPropagation()">
+                                        <div class="popup-row"><span class="popup-label">最小值</span><input type="number" class="popup-input" id="min-8"></div>
+                                        <div class="popup-row"><span class="popup-label">最大值</span><input type="number" class="popup-input" id="max-8"></div>
+                                        <div class="popup-actions"><button class="btn-popup btn-popup-clear" onclick="clearFilter(8)">清除</button><button class="btn-popup btn-popup-ok" onclick="confirmFilter(8)">篩選</button></div>
+                                    </div>
+                                </th>
+                                <th onclick="sortTable(9)"><span class="filter-link" id="filter-btn-9" onclick="toggleFilterPanel(event, 9)">季增%</span><span class="sort-icon">⇅</span>
+                                    <div class="filter-popup" id="popup-9" onclick="event.stopPropagation()">
+                                        <div class="popup-row"><span class="popup-label">最小值</span><input type="number" class="popup-input" id="min-9"></div>
+                                        <div class="popup-row"><span class="popup-label">最大值</span><input type="number" class="popup-input" id="max-9"></div>
+                                        <div class="popup-actions"><button class="btn-popup btn-popup-clear" onclick="clearFilter(9)">清除</button><button class="btn-popup btn-popup-ok" onclick="confirmFilter(9)">篩選</button></div>
+                                    </div>
+                                </th>
+                                <th onclick="sortTable(10)"><span class="filter-link" id="filter-btn-10" onclick="toggleFilterPanel(event, 10)">年增%</span><span class="sort-icon">⇅</span>
+                                    <div class="filter-popup" id="popup-10" onclick="event.stopPropagation()">
+                                        <div class="popup-row"><span class="popup-label">最小值</span><input type="number" class="popup-input" id="min-10"></div>
+                                        <div class="popup-row"><span class="popup-label">最大值</span><input type="number" class="popup-input" id="max-10"></div>
+                                        <div class="popup-actions"><button class="btn-popup btn-popup-clear" onclick="clearFilter(10)">清除</button><button class="btn-popup btn-popup-ok" onclick="confirmFilter(10)">篩選</button></div>
+                                    </div>
+                                </th>
+                                <th onclick="sortTable(11)"><span class="filter-link" id="filter-btn-11" onclick="toggleFilterPanel(event, 11)">股價</span><span class="sort-icon">⇅</span>
+                                    <div class="filter-popup" id="popup-11" onclick="event.stopPropagation()">
+                                        <div class="popup-row"><span class="popup-label">最小值</span><input type="number" class="popup-input" id="min-11"></div>
+                                        <div class="popup-row"><span class="popup-label">最大值</span><input type="number" class="popup-input" id="max-11"></div>
+                                        <div class="popup-actions"><button class="btn-popup btn-popup-clear" onclick="clearFilter(11)">清除</button><button class="btn-popup btn-popup-ok" onclick="confirmFilter(11)">篩選</button></div>
+                                    </div>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="stockBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * @file 台股財報小助手前端：讀取 earnings_data.json，提供排序、篩選與響應式表格。
+         */
+        let tableData = []; 
+        let columnFilters = {}; 
+        
+        // 取得當天日期數值，用於篩選邏輯 (格式: YYYYMMDD)
+        const now = new Date();
+        const serverDateVal = parseInt(now.getFullYear() + 
+             (now.getMonth()+1).toString().padStart(2,'0') + 
+             now.getDate().toString().padStart(2,'0'));
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadHolidays();
+            setTimeout(() => { window.location.reload(); }, 3600000); // 1小時後重整
+            
+            // 設定預設日期範圍 (Today ~ Today+7)
+            setDefaultDateRange();
+
+            // --- 核心修改：讀取 JSON 並產生表格 ---
+            fetch('earnings_data.json')
+                .then(response => response.json())
+                .then(data => {
+                    const tbody = document.getElementById('stockBody');
+                    const badge = document.getElementById('last-update-badge');
+                    
+                    // 更新時間標籤
+                    badge.textContent = '更新：' + formatDate(new Date());
+
+                    if (!data || data.length === 0) {
+                        tbody.innerHTML = `<tr id="no-data-row"><td colspan="12" class="text-center py-5"><div style="opacity: 0.5;"><h5 class="mt-2 text-white">😴 目前無符合資料</h5><small style="color: #777;">請確認 earnings_data.json 內容</small></div></td></tr>`;
+                        return;
+                    }
+
+                    let html = '';
+                    data.forEach((stock, index) => {
+                        const ySym = stock.yahoo_ticker || (String(stock.symbol) + '.TW');
+                        const tvEx = ySym.endsWith('.TW') ? 'TWSE' : 'TPEX';
+                        const tvSlug = tvEx + '-' + stock.symbol;
+                        // 超過 50 筆加上 pending-row class
+                        const isPending = index > 50;
+                        const rowClass = isPending ? 'pending-row' : '';
+                        
+                        // 數值判斷
+                        const yoyClass = (parseFloat(stock.yoy) > 15) ? 'positive' : '';
+                        const qoqClass = (parseFloat(stock.qoq) > 0) ? 'positive' : '';
+                        
+                        // 時間顯示邏輯
+                        let timeDisplay = `<span class="time-unk">${stock.time}</span>`;
+                        if (stock.time === '盤前') timeDisplay = `<span class="time-bmo">盤前</span>`;
+                        else if (stock.time === '盤後') timeDisplay = `<span class="time-amc">盤後</span>`;
+
+                        // 組合 HTML
+                        // 注意: data-val 必須正確生成以便排序和篩選
+                        const dateVal = stock.date ? stock.date.replace(/-/g, '') : '0';
+                        
+                        html += `
+                        <tr class="stock-row ${rowClass}">
+                            <td class="text-nowrap" data-val="${dateVal}">
+                                <div class="d-flex align-items-center justify-content-center">
+                                    <a href="https://tw.tradingview.com/symbols/${tvSlug}/financials-overview/" target="_blank" rel="noopener noreferrer" class="date-link">${stock.date}</a>
+                                    <div>
+                                        <a href="https://zh.wikipedia.org/zh-tw/Special:Search/${encodeURIComponent(stock.symbol)}" target="_blank" rel="noopener noreferrer" class="wf-btn w-link">W</a>
+                                        <a href="https://goodinfo.tw/tw/StockDetail/ShowFinStatements.asp?STOCK_ID=${stock.symbol}" target="_blank" rel="noopener noreferrer" class="wf-btn g-link">G</a>
+                                    </div>
+                                </div>
+                            </td>
+                            <td data-val="${stock.symbol}"><a href="https://finance.yahoo.com/quote/${ySym}" target="_blank" rel="noopener noreferrer" class="stock-link ${yoyClass}">${stock.symbol}</a></td>
+                            <td data-val="${stock.time}">${timeDisplay}</td>
+                            <td data-val="${stock.market_cap}">${stock.market_cap}</td>
+                            <td data-val="${stock.pe}">${stock.pe}</td>
+                            <td data-val="${stock.pb}">${stock.pb}</td>
+                            <td data-val="${stock.eps_est}" style="color: #fff; font-weight: 500;">${stock.eps_est}</td>
+                            <td data-val="${stock.eps_last_q}" class="text-secondary-dark">${stock.eps_last_q}</td>
+                            <td data-val="${stock.eps_last_y}" class="text-secondary-dark">${stock.eps_last_y}</td>
+                            <td data-val="${stock.qoq}" class="${qoqClass}">${stock.qoq}%</td>
+                            <td data-val="${stock.yoy}" class="${yoyClass}">${stock.yoy}%</td>
+                            <td data-val="${stock.price}"><span class="static-price">${stock.price}</span></td>
+                        </tr>`;
+                    });
+
+                    tbody.innerHTML = html;
+
+                    // 資料載入完成，執行初始化邏輯
+                    initVisibleTableData();
+                    requestAnimationFrame(() => {
+                        setTimeout(processPendingRows, 50);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error loading JSON:', error);
+                    document.getElementById('stockBody').innerHTML = `<tr><td colspan="12" class="text-center text-danger py-4">無法讀取資料 (earnings_data.json)</td></tr>`;
+                    document.getElementById('last-update-badge').textContent = '讀取失敗';
+                });
+
+
+            document.addEventListener('click', function(event) {
+                document.querySelectorAll('.filter-popup').forEach(p => p.style.display = 'none');
+            });
+
+            document.getElementById('startDate').addEventListener('change', applyAllFilters);
+            document.getElementById('endDate').addEventListener('change', applyAllFilters);
+        });
+
+        /**
+         * 載入 holidays.json，顯示即將到來的台股與美股休市日（各取最近 2 筆）。
+         */
+        function loadHolidays() {
+            fetch('holidays.json')
+                .then(response => response.json())
+                .then(data => {
+                    if (!data) return;
+
+                    // 取得今日日期 YYYY-MM-DD
+                    const today = new Date().toISOString().split('T')[0];
+
+                    const getUpcomingHolidays = (dates) => {
+                        return dates
+                            .filter(date => date >= today)
+                            .sort()
+                            .slice(0, 2);
+                    };
+
+                    const usHolidays = getUpcomingHolidays(data.US || []);
+                    const twHolidays = getUpcomingHolidays(data.TW || []);
+
+                    const formatHolidayDate = (dateStr) => {
+                        if (!dateStr) return '----.--.--';
+                        
+                        // 解析 YYYY-MM-DD
+                        const [y, m, d] = dateStr.split('-');
+                        
+                        // 建立日期物件 (注意月份要減 1)
+                        const dateObj = new Date(y, m - 1, d);
+                        
+                        // 星期幾對照表
+                        const days = ['日', '一', '二', '三', '四', '五', '六'];
+                        const dayName = days[dateObj.getDay()];
+                        
+                        // 格式化輸出 YYYY.MM.DD(Week)
+                        return `${y}.${m}.${d}(${dayName})`;
+                    };
+
+                    const updateHolidayRow = (id, prefix, holidays) => {
+                        const date1 = formatHolidayDate(holidays[0]);
+                        const date2 = formatHolidayDate(holidays[1]);
+                        document.getElementById(id).innerHTML = 
+                            `${prefix}<span class="holiday-date">${date1}</span>、<span class="holiday-date">${date2}</span>`;
+                    };
+
+                    updateHolidayRow('holiday-tw', '台：', twHolidays);
+                    updateHolidayRow('holiday-us', '美：', usHolidays);
+                })
+                .catch(err => {
+                    console.error('Error loading holidays.json:', err);
+                });
+        }
+
+        // 設定預設日期範圍
+        function setDefaultDateRange() {
+            try {
+                const now = new Date();
+                const todayStr = formatDate(now);
+                
+                const targetDate = new Date(now);
+                targetDate.setDate(now.getDate() + 7);
+                const targetStr = formatDate(targetDate);
+
+                const startInput = document.getElementById('startDate');
+                const endInput = document.getElementById('endDate');
+                
+                if (startInput) startInput.value = todayStr;
+                if (endInput) endInput.value = targetStr;
+            } catch (e) { console.error("Auto-date filter error:", e); }
+        }
+
+        function formatDate(date) {
+            const y = date.getFullYear();
+            const m = (date.getMonth() + 1).toString().padStart(2, '0');
+            const d = date.getDate().toString().padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+
+        // 初始化當前可見的資料 (首屏快速渲染)
+        function initVisibleTableData() {
+            const rows = document.querySelectorAll("#stockTable tbody tr.stock-row:not(.pending-row)");
+            rows.forEach(row => {
+                tableData.push(parseRowToObj(row));
+            });
+            // 針對這少數幾筆做初始篩選
+            applyAllFilters(); 
+            initialSort();
+        }
+
+        function parseRowToObj(row) {
+            const cells = row.cells;
+            return {
+                element: row,
+                vals: [
+                    parseRaw(cells[0].getAttribute('data-val')), 
+                    cells[1].getAttribute('data-val'), 
+                    cells[2].getAttribute('data-val'), 
+                    parseRaw(cells[3].getAttribute('data-val')), 
+                    parseRaw(cells[4].getAttribute('data-val')), 
+                    parseRaw(cells[5].getAttribute('data-val')), 
+                    parseRaw(cells[6].getAttribute('data-val')), 
+                    parseRaw(cells[7].getAttribute('data-val')), 
+                    parseRaw(cells[8].getAttribute('data-val')), 
+                    parseRaw(cells[9].getAttribute('data-val')), 
+                    parseRaw(cells[10].getAttribute('data-val')), 
+                    parseRaw(cells[11].getAttribute('data-val'))
+                ]
+            };
+        }
+
+        // --- 優化後的背景處理邏輯 ---
+        function processPendingRows() {
+            const pendingRows = document.getElementsByClassName("pending-row");
+            const allPending = Array.from(pendingRows); 
+            if (allPending.length === 0) return;
+
+            const indicator = document.getElementById('loading-indicator');
+            indicator.style.display = 'block';
+
+            let index = 0;
+            const chunkSize = 500; 
+            const currentFilterCriteria = getFilterCriteria();
+
+            function processChunk() {
+                const end = Math.min(index + chunkSize, allPending.length);
+                const chunkData = [];
+                
+                for (; index < end; index++) {
+                    const row = allPending[index];
+                    const rowObj = parseRowToObj(row);
+                    chunkData.push(rowObj);
+                    
+                    const isVisible = checkRowVisible(rowObj, currentFilterCriteria);
+                    row.classList.remove('pending-row');
+                    
+                    if (isVisible) {
+                        row.classList.remove('d-none-custom');
+                    } else {
+                        row.classList.add('d-none-custom');
+                    }
+                }
+
+                tableData = tableData.concat(chunkData);
+
+                if (index < allPending.length) {
+                    requestAnimationFrame(processChunk);
+                } else {
+                    indicator.style.opacity = '0';
+                    setTimeout(() => indicator.style.display = 'none', 300);
+                    
+                    const visibleCount = document.querySelectorAll('#stockTable tbody tr:not(.d-none-custom):not(#no-data-row)').length;
+                    checkEmptyTable(visibleCount);
+                    
+                    const activeSortTh = document.querySelector('th[data-sort-dir]');
+                    if (activeSortTh) {
+                        const idx = Array.from(activeSortTh.parentNode.children).indexOf(activeSortTh);
+                        sortTable(idx, true);
+                    } else {
+                         initialSort(); 
+                    }
+                }
+            }
+            processChunk();
+        }
+
+        function parseRaw(val) {
+            if (!val || val === '-') return NaN;
+            const num = parseFloat(val);
+            if (!isNaN(num) && val.length == String(num).length) return num;
+
+            let multiplier = 1;
+            const lastChar = val.slice(-1).toUpperCase();
+            if (lastChar === 'T') multiplier = 1e12;
+            else if (lastChar === 'B') multiplier = 1e9;
+            else if (lastChar === 'M') multiplier = 1e6;
+            else if (lastChar === 'K') multiplier = 1e3;
+            else if (lastChar === '%') { }
+            else return num; 
+
+            return parseFloat(val) * multiplier;
+        }
+
+        function getFilterCriteria() {
+            const globalStartVal = document.getElementById('startDate').value;
+            const globalEndVal = document.getElementById('endDate').value;
+            const getNumDate = (dStr) => dStr ? parseInt(dStr.replace(/-/g, '')) : null;
+            
+            return {
+                gStartNum: getNumDate(globalStartVal),
+                gEndNum: getNumDate(globalEndVal),
+                filters: columnFilters
+            };
+        }
+
+        function checkRowVisible(rowObj, criteria) {
+            const { gStartNum, gEndNum, filters } = criteria;
+            const rowDateNum = rowObj.vals[0];
+
+            if (rowDateNum > 0) {
+                if (gStartNum && rowDateNum < gStartNum) return false;
+                if (gEndNum && rowDateNum > gEndNum) return false;
+            }
+
+            for (const colIndex in filters) {
+                const filter = filters[colIndex];
+                const cellVal = rowObj.vals[colIndex];
+
+                if (colIndex == 0) {
+                    if (filter.min && cellVal < filter.min) return false;
+                    if (filter.max && cellVal > filter.max) return false;
+                } else if (colIndex == 2) {
+                    const timeText = cellVal;
+                    const isBMO = (timeText === '盤前');
+                    const isAMC = (timeText === '盤後');
+                    const isOther = !isBMO && !isAMC;
+                    let match = false;
+                    if (filter.includes('盤前') && isBMO) match = true;
+                    if (filter.includes('盤後') && isAMC) match = true;
+                    if (filter.includes('other') && isOther) match = true;
+                    if (!match) return false;
+                } else {
+                    if (typeof cellVal !== 'number' || isNaN(cellVal)) {
+                        // 文字類型且有設定數值篩選 -> 跳過
+                    } else {
+                        if (filter.min !== null && cellVal < filter.min) return false;
+                        if (filter.max !== null && cellVal > filter.max) return false;
+                    }
+                }
+            }
+            return true;
+        }
+
+        /**
+         * 依目前篩選條件更新列的可見狀態。
+         */
+        function applyAllFilters() {
+            if (tableData.length === 0) return;
+
+            const criteria = getFilterCriteria();
+            let visibleCount = 0;
+
+            for (let i = 0; i < tableData.length; i++) {
+                const rowObj = tableData[i];
+                const show = checkRowVisible(rowObj, criteria);
+                
+                const isHidden = rowObj.element.classList.contains('d-none-custom');
+                if (show) {
+                    if (isHidden) rowObj.element.classList.remove('d-none-custom');
+                    visibleCount++;
+                } else {
+                    if (!isHidden) rowObj.element.classList.add('d-none-custom');
+                }
+            }
+            checkEmptyTable(visibleCount);
+        }
+
+        // --- UI Helper functions ---
+        function toggleFilterPanel(event, idx) {
+            event.stopPropagation();
+            document.querySelectorAll('.filter-popup').forEach(p => { if(p.id !== 'popup-' + idx) p.style.display = 'none'; });
+            const popup = document.getElementById('popup-' + idx);
+            if (popup.style.display === 'block') { popup.style.display = 'none'; } 
+            else {
+                popup.style.display = 'block';
+                const current = columnFilters[idx];
+                if (idx == 0) {
+                    document.getElementById('filter-start-0').value = current && current.rawMin ? current.rawMin : '';
+                    document.getElementById('filter-end-0').value = current && current.rawMax ? current.rawMax : '';
+                } else if (idx == 2) {
+                    const selected = current || [];
+                    document.getElementById('chk-bmo-2').checked = selected.includes('盤前');
+                    document.getElementById('chk-amc-2').checked = selected.includes('盤後');
+                    document.getElementById('chk-other-2').checked = selected.includes('other');
+                } else if(idx == 1) {
+                    // search box
+                    document.getElementById('min-1').value = current && current.keyword ? current.keyword : '';
+                } else {
+                    document.getElementById('min-' + idx).value = current && current.min !== null ? current.min : '';
+                    document.getElementById('max-' + idx).value = current && current.max !== null ? current.max : '';
+                }
+            }
+        }
+
+        function confirmFilter(idx) {
+            const btn = document.getElementById('filter-btn-' + idx);
+            let filterData = null;
+            if (idx == 0) {
+                const startStr = document.getElementById('filter-start-0').value;
+                const endStr = document.getElementById('filter-end-0').value;
+                const parseDate = (s) => s ? parseInt(s.replace(/-/g, '')) : null;
+                if (startStr || endStr) filterData = { min: parseDate(startStr), max: parseDate(endStr), rawMin: startStr, rawMax: endStr };
+            } else if (idx == 2) {
+                const checked = [];
+                if (document.getElementById('chk-bmo-2').checked) checked.push('盤前');
+                if (document.getElementById('chk-amc-2').checked) checked.push('盤後');
+                if (document.getElementById('chk-other-2').checked) checked.push('other');
+                if (checked.length > 0) filterData = checked;
+            } else if (idx == 1) {
+                // 這裡原本是空的，若要搜尋代碼可自行擴充
+                // 目前僅做清除按鈕功能演示
+                // 如果需要代碼搜尋，需修改 checkRowVisible 增加 string includes 判斷
+            } else {
+                const minInput = document.getElementById('min-' + idx).value;
+                const maxInput = document.getElementById('max-' + idx).value;
+                const minVal = minInput === '' ? null : parseFloat(minInput);
+                const maxVal = maxInput === '' ? null : parseFloat(maxInput);
+                if (minVal !== null || maxVal !== null) filterData = { min: minVal, max: maxVal };
+            }
+
+            if (filterData === null) {
+                delete columnFilters[idx];
+                btn.classList.remove('active');
+            } else {
+                columnFilters[idx] = filterData;
+                btn.classList.add('active');
+            }
+            document.getElementById('popup-' + idx).style.display = 'none';
+            applyAllFilters();
+        }
+
+        function clearFilter(idx) {
+            if (idx == 0) {
+                document.getElementById('filter-start-0').value = '';
+                document.getElementById('filter-end-0').value = '';
+            } else if (idx == 2) {
+                document.getElementById('chk-bmo-2').checked = false;
+                document.getElementById('chk-amc-2').checked = false;
+                document.getElementById('chk-other-2').checked = false;
+            } else if (idx == 1) {
+                document.getElementById('min-1').value = '';
+            } else {
+                document.getElementById('min-' + idx).value = '';
+                document.getElementById('max-' + idx).value = '';
+            }
+            confirmFilter(idx);
+        }
+
+        /**
+         * 依欄位 n 排序 tableData（會重排 DOM 列順序）。
+         * @param {number} n 欄位索引
+         * @param {boolean} [keepDir=false] 是否保留目前排序方向
+         */
+        function sortTable(n, keepDir = false) {
+            if (tableData.length === 0) return;
+            const table = document.getElementById("stockTable");
+            const th = table.tHead.rows[0].cells[n];
+            
+            let isAsc = false;
+            if (!keepDir) {
+                const currentDir = th.getAttribute("data-sort-dir"); 
+                const newDir = currentDir === "desc" ? "asc" : "desc";
+                th.setAttribute("data-sort-dir", newDir);
+                isAsc = newDir === "asc";
+                Array.from(table.tHead.rows[0].cells).forEach(cell => { if(cell !== th) cell.removeAttribute("data-sort-dir"); });
+            } else {
+                const currentDir = th.getAttribute("data-sort-dir") || "desc";
+                isAsc = currentDir === "asc";
+            }
+
+            tableData.sort((objA, objB) => {
+                const valA = objA.vals[n];
+                const valB = objB.vals[n];
+                if (typeof valA === 'number' && typeof valB === 'number') {
+                      if (isNaN(valA)) return 1;
+                      if (isNaN(valB)) return -1;
+                      return isAsc ? valA - valB : valB - valA;
+                }
+                const strA = String(valA);
+                const strB = String(valB);
+                return isAsc ? strA.localeCompare(strB, 'zh-Hant') : strB.localeCompare(strA, 'zh-Hant');
+            });
+
+            const tbody = document.getElementById('stockBody');
+            const fragment = document.createDocumentFragment();
+            for (let i = 0; i < tableData.length; i++) fragment.appendChild(tableData[i].element);
+            
+            // 清除現有內容再重繪
+            // 注意: 這裡不能直接innerHTML清空，因為tableData存的是element reference
+            // appendChild會自動移動節點
+            tbody.appendChild(fragment);
+            
+            let noDataRow = document.getElementById('custom-no-data');
+            if(noDataRow) tbody.appendChild(noDataRow); 
+        }
+
+        function initialSort() {
+            if (tableData.length === 0) return;
+
+            tableData.sort((a, b) => {
+                const dateA = a.vals[0];
+                const dateB = b.vals[0];
+                if (dateA !== dateB) return dateA - dateB; // 日期升序
+                const yoyA = a.vals[10] || -9999;
+                const yoyB = b.vals[10] || -9999;
+                return yoyB - yoyA; // YoY 降序
+            });
+            const tbody = document.getElementById('stockBody');
+            const fragment = document.createDocumentFragment();
+            for (let i = 0; i < tableData.length; i++) {
+                fragment.appendChild(tableData[i].element);
+            }
+            tbody.appendChild(fragment);
+        }
+
+        function checkEmptyTable(count) {
+            const tbody = document.getElementById('stockBody');
+            let noDataRow = document.getElementById('custom-no-data');
+            if (count === 0) {
+                if (!noDataRow) {
+                    const tr = document.createElement('tr');
+                    tr.id = 'custom-no-data';
+                    tr.innerHTML = `<td colspan="12" class="text-center py-5"><div style="opacity:0.5;"><h5 class="mt-2 text-white">😴 無符合資料</h5><small style="color:#777;">請調整篩選條件</small></div></td>`;
+                    tbody.appendChild(tr);
+                }
+            } else {
+                if (noDataRow) noDataRow.remove();
+            }
+        }
+
+        document.addEventListener('scroll', () => {
+            const h = document.documentElement.scrollHeight - window.innerHeight;
+            const p = h > 0 ? (window.scrollY / h) * 100 : 100;
+            document.getElementById('scroll-progress-bar').style.width = p + '%';
+        });
+    </script>
+</body>
+</html>

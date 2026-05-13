@@ -1,0 +1,7 @@
+requests
+yfinance
+pandas
+numpy
+lxml
+openpyxl
+pandas_market_calendars
