@@ -4,21 +4,17 @@
 
 輸出 `earnings_data.json` 欄位與美股版相同（另加 `yf_symbol`、`name`），可供 GitHub Pages 與 `TW_GUI` 財報選股使用。
 
-## 建議的 GitHub 網站（台股版 US-FinanceView）
+## GitHub 網站（台股版 US-FinanceView）
 
-| 倉庫 | 用途 | 對應美股 |
+| 倉庫 | 用途 | 網址 |
 |---|---|---|
-| **Johsok/TW-Finance** | 爬蟲 + Actions（本資料夾） | US-Finance |
-| **Johsok/TW-FinanceView** | GitHub Pages 前端 | US-FinanceView |
+| [Johsok/TW-Finance](https://github.com/Johsok/TW-Finance) | 爬蟲 + Actions | 對應 [US-Finance](https://github.com/Johsok/US-Finance) |
+| [Johsok/TW-FinanceView](https://github.com/Johsok/TW-FinanceView) | GitHub Pages 前端 | [johsok.github.io/TW-FinanceView](https://johsok.github.io/TW-FinanceView/) |
 
-Pages 網址建議：`https://johsok.github.io/TW-FinanceView/`
+JSON（給網站與 `TW_GUI` 財報選股）：
+`https://johsok.github.io/TW-FinanceView/earnings_data.json`
 
-前端已放在本資料夾 `index.html`，以及 `../TW-FinanceView/`。建立遠端後：
-
-1. 在 GitHub 新建 `Johsok/TW-Finance`、`Johsok/TW-FinanceView`（公開 View 才能當網站）
-2. View 倉庫 Settings → Pages → Deploy from `main` / `/`
-3. TW-Finance 設定 Secrets：`API_TOKEN_GITHUB`（寫入 View）、選填 `FINMIND_TOKEN`
-4. 本機先跑一次 `python main2.py` 產生 JSON，再 push
+View 倉庫會從本倉庫公開的 `main` 同步 JSON。本倉庫 Actions 若要額外把檔案 **push** 到 View，可在 Secrets 設定 `API_TOKEN_GITHUB`；選填 `FINMIND_TOKEN` 提高 FinMind 額度。
 
 ## 資料來源
 
