@@ -1,0 +1,214 @@
+name: 每日更新台股財報
+
+on:
+  schedule:
+    - cron: '17 18 * * *'
+      timezone: Asia/Taipei
+    - cron: '17 6 * * *'
+      timezone: Asia/Taipei
+    - cron: '17 11 * * *'
+      timezone: Asia/Taipei
+    - cron: '17 8 1 * *'
+      timezone: Asia/Taipei
+  workflow_dispatch:
+    inputs:
+      job:
+        description: 要執行的任務
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - main
+          - main2
+          - main3
+          - calendar
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tw-daily-update
+  cancel-in-progress: false
+
+jobs:
+  update-data:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: 下載程式碼
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: 顯示觸發資訊
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          CRON: ${{ github.event.schedule }}
+          JOB_INPUT: ${{ github.event.inputs.job }}
+        run: |
+          echo "event_name=${EVENT_NAME}"
+          echo "schedule=${CRON}"
+          echo "job_input=${JOB_INPUT}"
+          TZ=Asia/Taipei date
+
+      - name: 決定要執行的腳本
+        id: pick
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          CRON: ${{ github.event.schedule }}
+          JOB_INPUT: ${{ github.event.inputs.job }}
+        run: |
+          python3 <<'PY'
+          import os
+          import re
+
+          def normalize_cron(expr):
+              """
+              正規化 cron 字串。
+              @param {string} expr - GitHub 回傳的 cron
+              @returns {string} 正規化後的 cron
+              """
+              parts = re.sub(r"\s+", " ", (expr or "").strip()).split(" ")
+              normalized = []
+              for part in parts:
+                  if part.isdigit():
+                      normalized.append(str(int(part)))
+                  else:
+                      normalized.append(part)
+              return " ".join(normalized)
+
+          event_name = os.environ.get("EVENT_NAME", "")
+          cron = normalize_cron(os.environ.get("CRON", ""))
+          job = (os.environ.get("JOB_INPUT") or "all").strip() or "all"
+
+          run_main = False
+          run_main2 = False
+          run_main3 = False
+          run_cal = False
+
+          if event_name == "workflow_dispatch":
+              run_main = job in ("all", "main")
+              run_main2 = job in ("all", "main2")
+              run_main3 = job in ("all", "main3")
+              run_cal = job == "calendar"
+          else:
+              mapping = {
+                  "17 18 * * *": "main",
+                  "17 6 * * *": "main2",
+                  "17 11 * * *": "main3",
+                  "17 8 1 * *": "calendar",
+              }
+              which = mapping.get(cron)
+              run_main = which == "main"
+              run_main2 = which == "main2"
+              run_main3 = which == "main3"
+              run_cal = which == "calendar"
+
+          lines = [
+              f"cron={cron}",
+              f"run_main={'true' if run_main else 'false'}",
+              f"run_main2={'true' if run_main2 else 'false'}",
+              f"run_main3={'true' if run_main3 else 'false'}",
+              f"run_cal={'true' if run_cal else 'false'}",
+          ]
+          print("\n".join(lines))
+          output_path = os.environ.get("GITHUB_OUTPUT")
+          if output_path:
+              with open(output_path, "a", encoding="utf-8") as handle:
+                  handle.write("\n".join(lines) + "\n")
+
+          if not any((run_main, run_main2, run_main3, run_cal)):
+              raise SystemExit(
+                  f"未匹配到任何任務：event={event_name!r} cron={cron!r} job={job!r}"
+              )
+          PY
+
+      - name: 設定 Python 環境
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: 安裝套件
+        run: pip install -r requirements.txt
+
+      - name: 執行 main.py（台灣 18:17，抓今日+7 天）
+        if: steps.pick.outputs.run_main == 'true'
+        env:
+          FINMIND_TOKEN: ${{ secrets.FINMIND_TOKEN }}
+        run: python main.py
+
+      - name: 執行 main2.py（台灣 06:17，抓今日起 7 天）
+        if: steps.pick.outputs.run_main2 == 'true'
+        env:
+          FINMIND_TOKEN: ${{ secrets.FINMIND_TOKEN }}
+        run: python main2.py
+
+      - name: 執行 main3.py（台灣 11:17，抓今日+14 天）
+        if: steps.pick.outputs.run_main3 == 'true'
+        env:
+          FINMIND_TOKEN: ${{ secrets.FINMIND_TOKEN }}
+        run: python main3.py
+
+      - name: 執行 calender.py（每月 1 號台灣 08:17）
+        if: steps.pick.outputs.run_cal == 'true'
+        run: python calender.py
+
+      - name: Commit 並 Push 到 TW-Finance
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add earnings_data.json DailyLog.txt holidays.json
+
+          if git diff --quiet && git diff --staged --quiet; then
+            echo "檔案無變更，跳過推送。"
+            exit 0
+          fi
+
+          LAST_MSG="$(git log -1 --pretty=%s)"
+          if [[ "${LAST_MSG}" == Auto\ update:* ]]; then
+            echo "上一個提交已是 Auto update，改為 amend 覆蓋。"
+            git commit --amend --no-edit
+            git push --force-with-lease
+          else
+            git commit -m "Auto update: Taiwan stock earnings"
+            git push
+          fi
+
+      - name: 同步檔案到 TW-FinanceView
+        env:
+          API_TOKEN_GITHUB: ${{ secrets.API_TOKEN_GITHUB }}
+          TARGET_REPO: 'Johsok/TW-FinanceView'
+        run: |
+          set -euo pipefail
+          if [ -z "${API_TOKEN_GITHUB}" ]; then
+            echo "未設定 API_TOKEN_GITHUB，略過 TW-FinanceView。"
+            exit 0
+          fi
+
+          git clone --depth 1 "https://x-access-token:${API_TOKEN_GITHUB}@github.com/${TARGET_REPO}.git" target_repo_dir
+          cp -f earnings_data.json target_repo_dir/
+          cp -f holidays.json target_repo_dir/
+          cp -f DailyLog.txt target_repo_dir/
+
+          cd target_repo_dir
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add earnings_data.json holidays.json DailyLog.txt
+
+          if [[ -z "$(git status -s)" ]]; then
+            echo "檔案無變更，跳過推送。"
+            exit 0
+          fi
+
+          LAST_MSG="$(git log -1 --pretty=%s)"
+          if [[ "${LAST_MSG}" == Auto\ update:* ]]; then
+            git commit --amend --no-edit
+            git push --force-with-lease
+          else
+            git commit -m "Auto update: Sync data from TW-Finance"
+            git push
+          fi

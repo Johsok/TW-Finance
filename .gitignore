@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+.idea/
+.vscode/
+*.log
+stock_universe.json
+US-Finance/
+TW-Finance/

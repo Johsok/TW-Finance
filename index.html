@@ -1,0 +1,1567 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Johsok 台股財報小助手</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <style>
+        /* --- 全局深色主題設定 --- */
+        body { 
+            background-color: #121212; 
+            color: #e0e0e0;             
+            padding-top: 30px; 
+            padding-bottom: 50px;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+        
+        /* --- 卡片美化 --- */
+        .card { 
+            background-color: #1e1e1e; 
+            border-radius: 16px; 
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5); 
+            border: 1px solid #333;       
+            display: inline-block;
+            overflow: visible !important; 
+            max-width: 100%;
+        }
+        
+        /* --- 自訂標題與篩選器區域 --- */
+        .card-header-custom {
+            background-color: #1e1e1e;
+            padding: 15px 25px;       /* 調整內距讓視覺平衡 */
+            border-bottom: 1px solid #333;
+            display: flex;
+            justify-content: center; /* 關鍵：讓左、中、右三塊平均分散 */
+            align-items: center;      /* 關鍵：垂直置中對齊 */
+            flex-wrap: wrap;          /* 小螢幕時自動換行 */
+            gap: 20px;
+            border-radius: 16px 16px 0 0; 
+        }
+
+
+
+        .header-left h3 {
+            margin-bottom: 0;
+            color: #ffffff;
+            letter-spacing: 0.5px;
+            font-weight: 700;
+        }
+
+        /* --- 右側區塊群組 (休市資訊 + 篩選器) --- */
+        .header-right-group {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start; /* 讓內容靠左對齊 */
+            gap: 8px; /* 上下間距 */
+        }
+
+        /* --- 休市小方格樣式 --- */
+        .holiday-widget {
+            display: inline-flex;
+            align-items: center;
+            background-color: #252525;
+            border: 1px solid #444;
+            border-radius: 6px;
+            padding: 3px 8px;
+            font-size: 0.75rem;
+            width: fit-content;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .holiday-icon {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding-right: 8px;
+            margin-right: 8px;
+            border-right: 1px solid #555;
+            color: #ff6b6b; /* 休市警示色 */
+            font-weight: 800;
+            line-height: 1.1;
+            font-size: 0.8rem;
+        }
+
+        .holiday-info {
+            display: flex;
+            flex-direction: column;
+            line-height: 1.3;
+            color: #aaa;
+            font-family: 'Consolas', monospace;
+            text-align: left;
+        }
+        
+        .holiday-date { color: #fff; font-weight: 600; letter-spacing: 0.5px; }
+
+        /* --- 標籤樣式 --- */
+        .update-badge {
+            background-color: #333;
+            color: #aaa;
+            border: 1px solid #444;
+            border-radius: 20px;
+            padding: 2px 10px;
+            font-weight: 500;
+            font-size: 0.75rem;
+            display: inline-block;
+        }
+
+        .rate-badge-container {
+            border: 1px solid #6c757d; 
+            background-color: rgba(255, 255, 255, 0.03); 
+            color: #ced4da; 
+            border-radius: 20px;
+            padding: 2px 12px; 
+            font-weight: 500;
+            font-size: 0.75rem;
+            display: inline-block;
+            margin-top: 4px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .rate-gold-text {
+            color: #ffc107; 
+            font-weight: 800; 
+            font-family: 'Consolas', 'Monaco', monospace; 
+            font-size: 0.9rem; 
+            letter-spacing: 0.5px;
+            text-shadow: 0 0 10px rgba(255, 193, 7, 0.4); 
+            margin: 0 4px; 
+        }
+
+        .filter-section {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: #2a2a2a;
+            padding: 4px 8px;
+            border-radius: 8px;
+            border: 1px solid #444;
+        }
+
+        .filter-section label {
+            font-size: 0.75rem;
+            color: #aaa;
+            margin-right: 2px;
+        }
+
+        .filter-input {
+            background-color: #121212;
+            border: 1px solid #444;
+            color: #fff;
+            border-radius: 4px;
+            padding: 2px 4px;
+            font-size: 0.75rem;
+            color-scheme: dark; 
+        }
+
+        /* --- 頂部極光進度條 --- */
+        #scroll-progress-bar {
+            position: fixed;
+            top: 0; left: 0; width: 0%; height: 4px;
+            background: linear-gradient(90deg, #00f260, #0575e6); 
+            z-index: 99999;
+            transition: width 0.15s ease-out;
+            box-shadow: 0 0 15px rgba(5, 117, 230, 0.7); 
+            pointer-events: none;
+        }
+
+        /* --- 載入狀態提示 --- */
+        #loading-indicator {
+            position: fixed;
+            bottom: 20px; right: 20px;
+            background: rgba(33, 37, 41, 0.9);
+            color: #00e676;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            border: 1px solid #444;
+            z-index: 10000;
+            display: none; /* 預設隱藏，JS控制 */
+            transition: opacity 0.3s;
+        }
+        
+        /* --- 表格容器設定 (電腦版維持 visible) --- */
+        .table-responsive { 
+            overflow: visible !important; 
+            contain: layout style;
+        }
+
+        .table { 
+            font-size: 0.85rem; 
+            margin-bottom: 0;
+            color: #d0d0d0; 
+            border-collapse: separate; 
+            border-spacing: 0;
+            content-visibility: auto; 
+            contain-intrinsic-size: 1000px;
+        }
+        
+        .table thead th {
+            position: sticky; 
+            top: 0;             
+            z-index: 1020;
+            background: linear-gradient(180deg, #424242 0%, #262626 100%);
+            color: #ffffff;
+            font-size: 0.9rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 15px 12px;
+            border-bottom: 3px solid #555;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.4); 
+            white-space: nowrap;
+            cursor: pointer;
+            user-select: none;
+        }
+        
+        .table thead th:first-child { border-top-left-radius: 0; } 
+        .table thead th:last-child { border-top-right-radius: 0; }
+
+        .table thead th:hover {
+            background: linear-gradient(180deg, #505050 0%, #303030 100%);
+        }
+
+        /* 今日（含）之後的查詢隱藏「真實」「Surprise(%)」欄 */
+        #stockTable.hide-reported-cols th:nth-child(8),
+        #stockTable.hide-reported-cols td:nth-child(8),
+        #stockTable.hide-reported-cols th:nth-child(9),
+        #stockTable.hide-reported-cols td:nth-child(9) {
+            display: none;
+        }
+
+        /* --- 篩選連結 --- */
+        .filter-link {
+            color: #ffca2c; 
+            border-bottom: 1px dashed #ffca2c; 
+            transition: all 0.2s;
+            position: relative;
+            z-index: 1030; 
+            display: inline-block;
+        }
+        
+        .filter-link:hover {
+            color: #fff;
+            border-bottom: 1px solid #fff;
+            text-shadow: 0 0 8px rgba(255, 202, 44, 0.8);
+        }
+
+        .filter-link.active {
+            color: #00e676; 
+            border-bottom: 1px solid #00e676;
+        }
+
+        /* --- Popup 樣式 --- */
+        .filter-popup {
+            display: none; 
+            position: absolute;
+            top: 100%; 
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #2b2b2b;
+            border: 1px solid #555;
+            padding: 12px;
+            border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.8);
+            z-index: 9999; 
+            min-width: 170px;
+            text-align: left;
+            margin-top: 5px;
+            cursor: default; 
+        }
+
+        .filter-popup::before {
+            content: '';
+            position: absolute;
+            top: -6px; left: 50%;
+            transform: translateX(-50%);
+            border-width: 0 6px 6px 6px;
+            border-style: solid;
+            border-color: transparent transparent #555 transparent;
+        }
+
+        .popup-row { margin-bottom: 8px; }
+        .popup-checkbox-row { margin-bottom: 6px; display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: #ddd; }
+        .popup-checkbox-row input[type="checkbox"] { cursor: pointer; accent-color: #0d6efd; transform: scale(1.1); }
+        .popup-label { font-size: 0.75rem; color: #aaa; margin-bottom: 2px; display: block; }
+
+        .popup-input {
+            width: 100%;
+            background: #121212;
+            border: 1px solid #444;
+            border-radius: 4px;
+            padding: 4px 6px;
+            font-size: 0.85rem;
+            color: #fff;
+        }
+        .popup-input:focus { outline: none; border-color: #4dabf7; }
+
+        .popup-actions { display: flex; justify-content: space-between; gap: 8px; margin-top: 10px; }
+
+        .btn-popup {
+            border: none;
+            padding: 3px 10px;
+            font-size: 0.75rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .btn-popup-ok { background-color: #0d6efd; color: white; flex: 1; }
+        .btn-popup-ok:hover { background-color: #0b5ed7; }
+        .btn-popup-clear { background-color: #444; color: #ccc; }
+        .btn-popup-clear:hover { background-color: #555; color: white; }
+
+        .sort-icon { font-size: 0.8em; color: #888; margin-left: 5px; }
+
+        /* --- 即時股價專屬樣式 --- */
+        .static-price {
+            font-family: 'Consolas', monospace;
+            font-weight: 600;
+            color: #00e676; 
+        }
+
+        .table tbody td {
+            padding: 12px 14px;
+            border-bottom: 1px solid #2d2d2d; 
+            border-right: 1px solid #2d2d2d;  
+            white-space: nowrap;
+            vertical-align: middle;
+            background-color: #1e1e1e; 
+        }
+        .table tbody td:last-child { border-right: none; }
+        .table tbody tr:last-child td { border-bottom: none; }
+        .table-hover tbody tr:hover td { background-color: #2a2a2a; color: #fff; transition: all 0.2s ease; }
+
+        .positive { 
+            color: #ff5c5c !important; 
+            font-weight: 700;
+            background-color: rgba(255, 92, 92, 0.12); 
+            border-radius: 4px;
+            padding: 2px 6px;
+            box-shadow: 0 0 5px rgba(255, 92, 92, 0.2); 
+        }
+
+        .negative {
+            color: #26a69a !important;
+            font-weight: 700;
+            background-color: rgba(38, 166, 154, 0.12);
+            border-radius: 4px;
+            padding: 2px 6px;
+            box-shadow: 0 0 5px rgba(38, 166, 154, 0.2);
+        }
+        
+        .stock-link { text-decoration: none; color: #4dabf7; font-weight: 600; transition: color 0.2s; }
+        .stock-link:hover { color: #74c0fc; text-decoration: underline; }
+        .stock-link.positive { color: #ff5c5c !important; }
+
+        .wf-btn {
+            display: inline-block;
+            color: #6c757d; 
+            text-decoration: none;
+            font-size: 0.8rem;
+            margin-left: 3px;
+            padding: 1px 6px;
+            border-radius: 4px;
+            transition: all 0.2s ease-in-out;
+            border: 1px solid transparent; 
+        }
+        .wf-btn.w-link:hover { background-color: #0d6efd; color: #ffffff !important; font-weight: 800; box-shadow: 0 0 8px rgba(13, 110, 253, 0.6); }
+        .wf-btn.f-link:hover { background-color: #198754; color: #ffffff !important; font-weight: 800; box-shadow: 0 0 8px rgba(25, 135, 84, 0.6); }
+
+        .date-link { color: #aaa; text-decoration: none; font-weight: 500; margin-right: 5px; transition: all 0.2s; }
+        .date-link:hover { color: #fff; text-decoration: underline; }
+        
+        .text-secondary-dark { color: #6c757d; }
+        .time-bmo { color: #ffca2c; font-weight: 600; } 
+        .time-amc { color: #0dcaf0; font-weight: 600; } 
+        .time-unk { color: #adb5bd; } 
+
+        .gap-text {
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.75rem;
+            color: #ced4da;
+        }
+
+        /* --- 跳空欄：日期／百分比上下分割格子 --- */
+        .table tbody td.gap-td {
+            padding: 2px;
+            vertical-align: middle;
+        }
+
+        .gap-stack {
+            display: inline-flex;
+            align-items: stretch;
+            justify-content: center;
+            vertical-align: middle;
+        }
+
+        .gap-unit {
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            justify-content: center;
+            border: 1px solid #5c5c5c;
+            background: #252525;
+            box-sizing: border-box;
+        }
+
+        .gap-unit + .gap-unit {
+            margin-left: -1px;
+        }
+
+        .gap-date {
+            font-size: 0.62rem;
+            font-weight: 700;
+            color: #f0f0f0;
+            padding: 2px 3px;
+            line-height: 1.15;
+            border-bottom: 1px solid #5c5c5c;
+            text-align: center;
+            letter-spacing: 0;
+            white-space: nowrap;
+        }
+
+        .gap-pct {
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 1.05rem;
+            font-weight: 800;
+            padding: 2px 3px;
+            line-height: 1.15;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        .gap-up { color: #ff5c5c; }
+        .gap-down { color: #26a69a; }
+        .gap-zero { color: #ced4da; }
+
+        .table-hover tbody tr:hover .gap-unit {
+            background-color: #323232;
+        }
+
+        .d-none-custom { display: none !important; }
+
+        /* 略過畫面外列的繪製，降低大量列時的捲動負擔 */
+        .table tbody tr.stock-row {
+            content-visibility: auto;
+            contain-intrinsic-size: auto 48px;
+        }
+
+        /* --- 關鍵加速：初始隱藏類別 --- */
+        .pending-row { display: none; content-visibility: hidden; }
+
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-track { background: #121212; }
+        ::-webkit-scrollbar-thumb { background: #444; border-radius: 5px; }
+        ::-webkit-scrollbar-thumb:hover { background: #555; }
+
+        /* =========================================
+            手機版響應式 & 凍結欄位設定
+            只在螢幕寬度小於 768px 時生效
+            ========================================= */
+        @media (max-width: 768px) {
+            body {
+                padding-top: 10px;
+                padding-bottom: 20px;
+            }
+
+            /* 手機版需開啟橫向捲軸 */
+            .table-responsive {
+                overflow-x: auto !important;
+                border-radius: 0 0 16px 16px;
+            }
+            
+            .header-left h3 {
+                font-size: 1.25rem;
+            }
+
+            /* 手機版字體縮小 */
+            .table {
+                font-size: 0.75rem; /* 12px */
+            }
+
+            .table tbody td, .table thead th {
+                padding: 8px 6px; 
+            }
+
+            .table tbody td.gap-td {
+                padding: 2px;
+            }
+
+            .gap-date { font-size: 0.55rem; }
+            .gap-pct { font-size: 0.9rem; }
+
+            .wf-btn {
+                font-size: 0.7rem;
+                padding: 0 4px;
+            }
+
+            /* --- 凍結前兩欄 (日期 & 代碼) --- */
+            
+            /* 第 1 欄：日期 */
+            .table thead th:nth-child(1),
+            .table tbody td:nth-child(1) {
+                position: sticky;
+                left: 0;
+                z-index: 1022; 
+                min-width: 90px; 
+                background-color: #1e1e1e; 
+                border-right: 2px solid #333; 
+            }
+
+            .table thead th:nth-child(1) {
+                background: linear-gradient(180deg, #424242 0%, #262626 100%);
+                z-index: 1030; /* Header 層級最高 */
+            }
+
+            /* 第 2 欄：代碼 */
+            .table thead th:nth-child(2),
+            .table tbody td:nth-child(2) {
+                position: sticky;
+                left: 90px; /* 接在日期欄後面 */
+                z-index: 1022;
+                min-width: 70px;
+                background-color: #1e1e1e;
+                border-right: 2px solid #444; /* 加強第二欄右側邊界 */
+                box-shadow: 4px 0 8px rgba(0,0,0,0.3); /* 增加陰影 */
+            }
+
+            .table thead th:nth-child(2) {
+                background: linear-gradient(180deg, #424242 0%, #262626 100%);
+                z-index: 1030;
+            }
+
+            /* 修正 Hover 狀態下的背景色，避免透明 */
+            .table-hover tbody tr:hover td:nth-child(1),
+            .table-hover tbody tr:hover td:nth-child(2) {
+                background-color: #2a2a2a;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="scroll-progress-bar"></div>
+    <div id="loading-indicator">🔄 正在載入資料...</div>
+
+    <div class="container-fluid">
+        <div class="d-flex justify-content-center">
+            <div class="card">
+                <div class="card-header-custom">
+                    <h3 class="mb-0 text-white fw-bold" style="letter-spacing: 0.5px;">🚀 Johsok 台股財報小助手</h3>
+
+                    <div class="d-flex flex-column align-items-center gap-1"> 
+                        <span class="update-badge" id="last-update-badge">資料更新中...</span>
+                        <span class="rate-badge-container">
+                            加權指數 <span id="twd-rate-value" class="rate-gold-text">...</span>
+                        </span>
+                    </div>
+
+                    <div class="header-right-group">
+                        <div class="holiday-widget">
+                            <div class="holiday-icon">
+                                <div>休</div>
+                                <div>市</div>
+                            </div>
+                            <div class="holiday-info">
+                                <div id="holiday-us">美：--.--.--(週)、--.--.--(週)</div>
+                                <div id="holiday-tw">台：--.--.--(週)、--.--.--(週)</div>
+                            </div>
+                        </div>
+
+                        <div class="filter-section">
+                            <label for="startDate">📅 查詢範圍：</label>
+                            <input type="date" id="startDate" class="filter-input" title="開始日期">
+                            <span style="color: #666;">~</span>
+                            <input type="date" id="endDate" class="filter-input" title="結束日期">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle w-auto text-center hide-reported-cols" id="stockTable">
+                        <thead>
+                            <tr>
+                                <th onclick="sortTable(0)">
+                                    <span class="filter-link" id="filter-btn-0" onclick="toggleFilterPanel(event, 0)">日期</span>
+                                    <span class="sort-icon">⇅</span>
+                                    <div class="filter-popup" id="popup-0" onclick="event.stopPropagation()">
+                                        <div class="popup-row">
+                                            <span class="popup-label">起始日期 (>=)</span>
+                                            <input type="date" class="popup-input" id="filter-start-0">
+                                        </div>
+                                        <div class="popup-row">
+                                            <span class="popup-label">結束日期 (<=)</span>
+                                            <input type="date" class="popup-input" id="filter-end-0">
+                                        </div>
+                                        <div class="popup-actions">
+                                            <button class="btn-popup btn-popup-clear" onclick="clearFilter(0)">清除</button>
+                                            <button class="btn-popup btn-popup-ok" onclick="confirmFilter(0)">篩選</button>
+                                        </div>
+                                    </div>
+                                </th>
+                                <th onclick="sortTable(1)">
+                                    <span class="filter-link" id="filter-btn-1" onclick="toggleFilterPanel(event, 1)">代碼</span>
+                                    <span class="sort-icon">⇅</span>
+                                    <div class="filter-popup" id="popup-1" onclick="event.stopPropagation()">
+                                         <div class="popup-row">
+                                            <span class="popup-label">輸入代碼</span>
+                                            <input type="text" class="popup-input" id="min-1" placeholder="Search...">
+                                        </div>
+                                        <div class="popup-actions">
+                                            <button class="btn-popup btn-popup-clear" onclick="clearFilter(1)">清除</button>
+                                            <button class="btn-popup btn-popup-ok" onclick="confirmFilter(1)">篩選</button>
+                                        </div>
+                                    </div>
+                                </th>
+                                <th onclick="sortTable(2)">
+                                    <span class="filter-link" id="filter-btn-2" onclick="toggleFilterPanel(event, 2)">時間</span>
+                                    <span class="sort-icon">⇅</span>
+                                    <div class="filter-popup" id="popup-2" onclick="event.stopPropagation()">
+                                        <div class="popup-checkbox-row">
+                                            <input type="checkbox" id="chk-bmo-2" value="盤前">
+                                            <label for="chk-bmo-2">盤前</label>
+                                        </div>
+                                        <div class="popup-checkbox-row">
+                                            <input type="checkbox" id="chk-amc-2" value="盤後">
+                                            <label for="chk-amc-2">盤後</label>
+                                        </div>
+                                        <div class="popup-checkbox-row">
+                                            <input type="checkbox" id="chk-other-2" value="other">
+                                            <label for="chk-other-2" title="未定或特定時間">不確定</label>
+                                        </div>
+                                        <div class="popup-actions">
+                                            <button class="btn-popup btn-popup-clear" onclick="clearFilter(2)">清除</button>
+                                            <button class="btn-popup btn-popup-ok" onclick="confirmFilter(2)">篩選</button>
+                                        </div>
+                                    </div>
+                                </th>
+                                <th onclick="sortTable(3)"><span class="filter-link" id="filter-btn-3" onclick="toggleFilterPanel(event, 3)">市值</span><span class="sort-icon">⇅</span>
+                                    <div class="filter-popup" id="popup-3" onclick="event.stopPropagation()">
+                                        <div class="popup-row"><span class="popup-label">最小值</span><input type="number" class="popup-input" id="min-3"></div>
+                                        <div class="popup-row"><span class="popup-label">最大值</span><input type="number" class="popup-input" id="max-3"></div>
+                                        <div class="popup-actions"><button class="btn-popup btn-popup-clear" onclick="clearFilter(3)">清除</button><button class="btn-popup btn-popup-ok" onclick="confirmFilter(3)">篩選</button></div>
+                                    </div>
+                                </th>
+                                <th onclick="sortTable(4)"><span class="filter-link" id="filter-btn-4" onclick="toggleFilterPanel(event, 4)">P/E</span><span class="sort-icon">⇅</span>
+                                    <div class="filter-popup" id="popup-4" onclick="event.stopPropagation()">
+                                        <div class="popup-row"><span class="popup-label">最小值</span><input type="number" class="popup-input" id="min-4"></div>
+                                        <div class="popup-row"><span class="popup-label">最大值</span><input type="number" class="popup-input" id="max-4"></div>
+                                        <div class="popup-actions"><button class="btn-popup btn-popup-clear" onclick="clearFilter(4)">清除</button><button class="btn-popup btn-popup-ok" onclick="confirmFilter(4)">篩選</button></div>
+                                    </div>
+                                </th>
+                                <th onclick="sortTable(5)"><span class="filter-link" id="filter-btn-5" onclick="toggleFilterPanel(event, 5)">P/B</span><span class="sort-icon">⇅</span>
+                                    <div class="filter-popup" id="popup-5" onclick="event.stopPropagation()">
+                                        <div class="popup-row"><span class="popup-label">最小值</span><input type="number" class="popup-input" id="min-5"></div>
+                                        <div class="popup-row"><span class="popup-label">最大值</span><input type="number" class="popup-input" id="max-5"></div>
+                                        <div class="popup-actions"><button class="btn-popup btn-popup-clear" onclick="clearFilter(5)">清除</button><button class="btn-popup btn-popup-ok" onclick="confirmFilter(5)">篩選</button></div>
+                                    </div>
+                                </th>
+                                <th onclick="sortTable(6)"><span class="filter-link" id="filter-btn-6" onclick="toggleFilterPanel(event, 6)">預估</span><span class="sort-icon">⇅</span>
+                                    <div class="filter-popup" id="popup-6" onclick="event.stopPropagation()">
+                                        <div class="popup-row"><span class="popup-label">最小值</span><input type="number" class="popup-input" id="min-6"></div>
+                                        <div class="popup-row"><span class="popup-label">最大值</span><input type="number" class="popup-input" id="max-6"></div>
+                                        <div class="popup-actions"><button class="btn-popup btn-popup-clear" onclick="clearFilter(6)">清除</button><button class="btn-popup btn-popup-ok" onclick="confirmFilter(6)">篩選</button></div>
+                                    </div>
+                                </th>
+                                <th onclick="sortTable(7)"><span class="filter-link" id="filter-btn-7" onclick="toggleFilterPanel(event, 7)">真實</span><span class="sort-icon">⇅</span>
+                                    <div class="filter-popup" id="popup-7" onclick="event.stopPropagation()">
+                                        <div class="popup-row"><span class="popup-label">最小值</span><input type="number" class="popup-input" id="min-7"></div>
+                                        <div class="popup-row"><span class="popup-label">最大值</span><input type="number" class="popup-input" id="max-7"></div>
+                                        <div class="popup-actions"><button class="btn-popup btn-popup-clear" onclick="clearFilter(7)">清除</button><button class="btn-popup btn-popup-ok" onclick="confirmFilter(7)">篩選</button></div>
+                                    </div>
+                                </th>
+                                <th onclick="sortTable(8)"><span class="filter-link" id="filter-btn-8" onclick="toggleFilterPanel(event, 8)">Surprise(%)</span><span class="sort-icon">⇅</span>
+                                    <div class="filter-popup" id="popup-8" onclick="event.stopPropagation()">
+                                        <div class="popup-row"><span class="popup-label">最小值</span><input type="number" class="popup-input" id="min-8"></div>
+                                        <div class="popup-row"><span class="popup-label">最大值</span><input type="number" class="popup-input" id="max-8"></div>
+                                        <div class="popup-actions"><button class="btn-popup btn-popup-clear" onclick="clearFilter(8)">清除</button><button class="btn-popup btn-popup-ok" onclick="confirmFilter(8)">篩選</button></div>
+                                    </div>
+                                </th>
+                                <th onclick="sortTable(9)"><span class="filter-link" id="filter-btn-9" onclick="toggleFilterPanel(event, 9)">上季</span><span class="sort-icon">⇅</span>
+                                    <div class="filter-popup" id="popup-9" onclick="event.stopPropagation()">
+                                        <div class="popup-row"><span class="popup-label">最小值</span><input type="number" class="popup-input" id="min-9"></div>
+                                        <div class="popup-row"><span class="popup-label">最大值</span><input type="number" class="popup-input" id="max-9"></div>
+                                        <div class="popup-actions"><button class="btn-popup btn-popup-clear" onclick="clearFilter(9)">清除</button><button class="btn-popup btn-popup-ok" onclick="confirmFilter(9)">篩選</button></div>
+                                    </div>
+                                </th>
+                                <th onclick="sortTable(10)"><span class="filter-link" id="filter-btn-10" onclick="toggleFilterPanel(event, 10)">去年</span><span class="sort-icon">⇅</span>
+                                    <div class="filter-popup" id="popup-10" onclick="event.stopPropagation()">
+                                        <div class="popup-row"><span class="popup-label">最小值</span><input type="number" class="popup-input" id="min-10"></div>
+                                        <div class="popup-row"><span class="popup-label">最大值</span><input type="number" class="popup-input" id="max-10"></div>
+                                        <div class="popup-actions"><button class="btn-popup btn-popup-clear" onclick="clearFilter(10)">清除</button><button class="btn-popup btn-popup-ok" onclick="confirmFilter(10)">篩選</button></div>
+                                    </div>
+                                </th>
+                                <th onclick="sortTable(11)"><span class="filter-link" id="filter-btn-11" onclick="toggleFilterPanel(event, 11)">季增%</span><span class="sort-icon">⇅</span>
+                                    <div class="filter-popup" id="popup-11" onclick="event.stopPropagation()">
+                                        <div class="popup-row"><span class="popup-label">最小值</span><input type="number" class="popup-input" id="min-11"></div>
+                                        <div class="popup-row"><span class="popup-label">最大值</span><input type="number" class="popup-input" id="max-11"></div>
+                                        <div class="popup-actions"><button class="btn-popup btn-popup-clear" onclick="clearFilter(11)">清除</button><button class="btn-popup btn-popup-ok" onclick="confirmFilter(11)">篩選</button></div>
+                                    </div>
+                                </th>
+                                <th onclick="sortTable(12)"><span class="filter-link" id="filter-btn-12" onclick="toggleFilterPanel(event, 12)">年增%</span><span class="sort-icon">⇅</span>
+                                    <div class="filter-popup" id="popup-12" onclick="event.stopPropagation()">
+                                        <div class="popup-row"><span class="popup-label">最小值</span><input type="number" class="popup-input" id="min-12"></div>
+                                        <div class="popup-row"><span class="popup-label">最大值</span><input type="number" class="popup-input" id="max-12"></div>
+                                        <div class="popup-actions"><button class="btn-popup btn-popup-clear" onclick="clearFilter(12)">清除</button><button class="btn-popup btn-popup-ok" onclick="confirmFilter(12)">篩選</button></div>
+                                    </div>
+                                </th>
+                                <th onclick="sortTable(13)"><span class="filter-link" id="filter-btn-13" onclick="toggleFilterPanel(event, 13)">股價</span><span class="sort-icon">⇅</span>
+                                    <div class="filter-popup" id="popup-13" onclick="event.stopPropagation()">
+                                        <div class="popup-row"><span class="popup-label">最小值</span><input type="number" class="popup-input" id="min-13"></div>
+                                        <div class="popup-row"><span class="popup-label">最大值</span><input type="number" class="popup-input" id="max-13"></div>
+                                        <div class="popup-actions"><button class="btn-popup btn-popup-clear" onclick="clearFilter(13)">清除</button><button class="btn-popup btn-popup-ok" onclick="confirmFilter(13)">篩選</button></div>
+                                    </div>
+                                </th>
+                                <th onclick="sortTable(14)"><span class="filter-link" id="filter-btn-14" onclick="toggleFilterPanel(event, 14)">毛利率(%)</span><span class="sort-icon">⇅</span>
+                                    <div class="filter-popup" id="popup-14" onclick="event.stopPropagation()">
+                                        <div class="popup-row"><span class="popup-label">最小值</span><input type="number" class="popup-input" id="min-14"></div>
+                                        <div class="popup-row"><span class="popup-label">最大值</span><input type="number" class="popup-input" id="max-14"></div>
+                                        <div class="popup-actions"><button class="btn-popup btn-popup-clear" onclick="clearFilter(14)">清除</button><button class="btn-popup btn-popup-ok" onclick="confirmFilter(14)">篩選</button></div>
+                                    </div>
+                                </th>
+                                <th onclick="sortTable(15)"><span class="filter-link" id="filter-btn-15" onclick="toggleFilterPanel(event, 15)">跳空</span><span class="sort-icon">⇅</span>
+                                    <div class="filter-popup" id="popup-15" onclick="event.stopPropagation()">
+                                        <div class="popup-row"><span class="popup-label">關鍵字</span><input type="text" class="popup-input" id="min-15" placeholder="Search..."></div>
+                                        <div class="popup-actions"><button class="btn-popup btn-popup-clear" onclick="clearFilter(15)">清除</button><button class="btn-popup btn-popup-ok" onclick="confirmFilter(15)">篩選</button></div>
+                                    </div>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="stockBody">
+                            <tr id="loading-row"><td colspan="16" class="text-center py-5 text-secondary">資料載入中...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /** 全部財報列（記憶體資料，不先灌進 DOM）。 */
+        let allRows = [];
+        /** 目前篩選 + 排序後的可見列。 */
+        let viewRows = [];
+        /** 欄位篩選條件。 */
+        let columnFilters = {};
+        /** 目前排序：col=-1 表示預設（日期升序、年增降序）。 */
+        let sortState = { col: -1, asc: false };
+        /** 分塊渲染取消用世代號。 */
+        let renderToken = 0;
+        /** 篩選重建計時器。 */
+        let rebuildTimer = 0;
+
+        const TABLE_COL_COUNT = 16;
+        const RENDER_CHUNK = 80;
+        const FETCH_TIMEOUT_MS = 15000;
+        const HTML_ESCAPE = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+
+        /**
+         * 將 Date 轉為 YYYYMMDD 整數，供日期區間比對。
+         * @param {Date} date
+         * @returns {number}
+         */
+        function toYyyymmdd(date) {
+            return parseInt(
+                date.getFullYear() +
+                String(date.getMonth() + 1).padStart(2, '0') +
+                String(date.getDate()).padStart(2, '0'),
+                10
+            );
+        }
+
+        const todayAnchor = new Date();
+        todayAnchor.setHours(0, 0, 0, 0);
+        const todayNum = toYyyymmdd(todayAnchor);
+        const reportedStartDate = new Date(todayAnchor);
+        reportedStartDate.setDate(reportedStartDate.getDate() - 20);
+        const reportedStartNum = toYyyymmdd(reportedStartDate);
+        const gapEndDate = new Date(todayAnchor);
+        gapEndDate.setDate(gapEndDate.getDate() + 10);
+        const gapEndNum = toYyyymmdd(gapEndDate);
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadTwiiIndex();
+            loadHolidays();
+            setTimeout(() => { window.location.reload(); }, 3600000);
+            setDefaultDateRange();
+            loadEarningsData();
+
+            document.addEventListener('click', () => {
+                document.querySelectorAll('.filter-popup').forEach(p => { p.style.display = 'none'; });
+            });
+            document.getElementById('startDate').addEventListener('change', scheduleRebuild);
+            document.getElementById('endDate').addEventListener('change', scheduleRebuild);
+        });
+
+        /**
+         * 顯示或隱藏右下角載入提示。
+         * @param {boolean} show
+         * @param {string} [text]
+         */
+        function setLoading(show, text) {
+            const indicator = document.getElementById('loading-indicator');
+            if (!indicator) return;
+            if (text) indicator.textContent = text;
+            indicator.style.display = show ? 'block' : 'none';
+            indicator.style.opacity = show ? '1' : '0';
+        }
+
+        /**
+         * 在表格顯示載入錯誤。
+         * @param {string} message
+         */
+        function showLoadError(message) {
+            const tbody = document.getElementById('stockBody');
+            const badge = document.getElementById('last-update-badge');
+            const safe = escapeHtml(message || '未知錯誤');
+            tbody.innerHTML = `<tr><td colspan="${TABLE_COL_COUNT}" class="text-center text-danger py-4">無法讀取資料 (earnings_data.json)<br><small class="text-secondary">${safe}</small></td></tr>`;
+            if (badge) badge.textContent = '讀取失敗';
+        }
+
+        /**
+         * 帶逾時的 fetch，並略過快取以免讀到舊的損毀 JSON。
+         * @param {string} url
+         * @param {number} [timeoutMs]
+         * @returns {Promise<Response>}
+         */
+        function fetchNoStore(url, timeoutMs = FETCH_TIMEOUT_MS) {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), timeoutMs);
+            return fetch(url, { cache: 'no-store', signal: controller.signal })
+                .finally(() => clearTimeout(timer));
+        }
+
+        /**
+         * 解析財報 JSON；若含 Git 衝突標記則嘗試保留 HEAD 區塊。
+         * @param {string} raw
+         * @returns {unknown}
+         */
+        function parseEarningsJson(raw) {
+            const text = String(raw || '').replace(/^\uFEFF/, '').trim();
+            try {
+                return JSON.parse(text);
+            } catch (firstError) {
+                if (!/<<<<<<<|=======|>>>>>>>/.test(text)) throw firstError;
+                const match = text.match(/^<<<<<<<[^\n]*\n([\s\S]*?)\n=======/);
+                if (!match) throw firstError;
+                let head = match[1].trim();
+                if (!head.endsWith(']')) head += '\n]';
+                return JSON.parse(head);
+            }
+        }
+
+        /**
+         * 載入 earnings_data.json 並重建表格。
+         * @returns {Promise<void>}
+         */
+        async function loadEarningsData() {
+            const badge = document.getElementById('last-update-badge');
+            setLoading(true, '🔄 正在載入資料...');
+            try {
+                const response = await fetchNoStore('earnings_data.json');
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                const raw = await response.text();
+                const data = parseEarningsJson(raw);
+                if (!Array.isArray(data)) {
+                    throw new Error('JSON 根節點不是陣列');
+                }
+
+                const rows = [];
+                for (let i = 0; i < data.length; i++) {
+                    try {
+                        const row = normalizeRow(data[i]);
+                        if (row) rows.push(row);
+                    } catch (rowError) {
+                        console.warn('略過異常資料列', i, rowError);
+                    }
+                }
+                allRows = rows;
+                if (badge) badge.textContent = '更新：' + formatDate(new Date()) + `（${allRows.length} 筆）`;
+                rebuildView();
+            } catch (error) {
+                console.error('Error loading JSON:', error);
+                let hint = error && error.name === 'AbortError' ? '連線逾時' : (error && error.message ? error.message : String(error));
+                if (location.protocol === 'file:') {
+                    hint = '請以本機伺服器開啟此頁，勿直接雙擊 HTML';
+                }
+                showLoadError(hint);
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        /**
+         * 載入休市日資料。
+         * @returns {Promise<void>}
+         */
+        async function loadHolidays() {
+            try {
+                const response = await fetchNoStore('holidays.json');
+                if (!response.ok) return;
+                const data = await response.json();
+                if (!data) return;
+
+                const today = formatDate(todayAnchor);
+                const getUpcomingHolidays = (dates) => (dates || [])
+                    .filter(date => date >= today)
+                    .sort()
+                    .slice(0, 2);
+
+                const usHolidays = getUpcomingHolidays(data.US);
+                const twHolidays = getUpcomingHolidays(data.TW);
+
+                /**
+                 * @param {string} dateStr
+                 * @returns {string}
+                 */
+                const formatHolidayDate = (dateStr) => {
+                    if (!dateStr) return '----.--.--';
+                    const [y, m, d] = dateStr.split('-');
+                    const dateObj = new Date(Number(y), Number(m) - 1, Number(d));
+                    const days = ['日', '一', '二', '三', '四', '五', '六'];
+                    return `${y}.${m}.${d}(${days[dateObj.getDay()]})`;
+                };
+
+                /**
+                 * @param {string} id
+                 * @param {string} prefix
+                 * @param {string[]} holidays
+                 */
+                const updateHolidayRow = (id, prefix, holidays) => {
+                    const el = document.getElementById(id);
+                    if (!el) return;
+                    const date1 = formatHolidayDate(holidays[0]);
+                    const date2 = formatHolidayDate(holidays[1]);
+                    el.innerHTML = `${prefix}<span class="holiday-date">${date1}</span>、<span class="holiday-date">${date2}</span>`;
+                };
+
+                updateHolidayRow('holiday-us', '美：', usHolidays);
+                updateHolidayRow('holiday-tw', '台：', twHolidays);
+            } catch (err) {
+                console.error('Error loading holidays.json:', err);
+            }
+        }
+
+        /**
+         * 設定預設日期範圍（今日 ~ 今日+7），今日之前的列先隱藏。
+         */
+        function setDefaultDateRange() {
+            try {
+                const rangeEndDate = new Date(todayAnchor);
+                rangeEndDate.setDate(rangeEndDate.getDate() + 7);
+                const startInput = document.getElementById('startDate');
+                const endInput = document.getElementById('endDate');
+                if (startInput) startInput.value = formatDate(todayAnchor);
+                if (endInput) endInput.value = formatDate(rangeEndDate);
+            } catch (e) {
+                console.error('Auto-date filter error:', e);
+            }
+        }
+
+        /**
+         * 將值轉為顯示字串，空值顯示「-」。
+         * @param {*} val
+         * @returns {string}
+         */
+        function displayOrDash(val) {
+            if (val === undefined || val === null || val === '') return '-';
+            return String(val);
+        }
+
+        /**
+         * 跳脫 HTML 特殊字元。
+         * @param {*} value
+         * @returns {string}
+         */
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, ch => HTML_ESCAPE[ch]);
+        }
+
+        /**
+         * 依是否在顯示區間格式化儲存格；區間外留空。
+         * @param {boolean} visible
+         * @param {*} val
+         * @returns {{text: string, dataVal: string}}
+         */
+        function formatOptionalValue(visible, val) {
+            if (!visible) return { text: '', dataVal: '' };
+            if (val === undefined || val === null || val === '') return { text: '-', dataVal: '-' };
+            const text = String(val);
+            return { text, dataVal: text };
+        }
+
+        /**
+         * 格式化 Surprise(%) 儲存格，正值綠色、負值紅色。
+         * @param {boolean} visible
+         * @param {*} val
+         * @returns {{text: string, dataVal: string, cssClass: string}}
+         */
+        function formatSurpriseCell(visible, val) {
+            if (!visible) return { text: '', dataVal: '', cssClass: '' };
+            if (val === undefined || val === null || val === '' || val === '-') {
+                return { text: '-', dataVal: '-', cssClass: '' };
+            }
+            const raw = String(val);
+            const text = raw.endsWith('%') ? raw : `${raw}%`;
+            const num = parseFloat(raw);
+            let cssClass = '';
+            if (!isNaN(num) && num > 0) cssClass = 'positive';
+            else if (!isNaN(num) && num < 0) cssClass = 'negative';
+            return { text, dataVal: raw, cssClass };
+        }
+
+        /**
+         * 依參考日期推算跳空月日所屬年份（處理跨年）。
+         * @param {number} month
+         * @param {number} refYear
+         * @param {number} refMonth
+         * @returns {number}
+         */
+        function resolveGapYear(month, refYear, refMonth) {
+            if (refMonth <= 2 && month >= 11) return refYear - 1;
+            if (refMonth >= 11 && month <= 2) return refYear + 1;
+            return refYear;
+        }
+
+        /**
+         * 將跳空字串轉成上下分割的日期／百分比格子。
+         * 資料格式例如：`8/12_3% 8/13_-2%`
+         * @param {boolean} visible
+         * @param {*} val
+         * @param {string} [refDate] YYYY-MM-DD，用於推算星期
+         * @returns {{html: string, dataVal: string}}
+         */
+        function formatGapCell(visible, val, refDate) {
+            if (!visible) return { html: '', dataVal: '' };
+            if (val === undefined || val === null || val === '' || val === '-') {
+                return { html: '-', dataVal: '-' };
+            }
+            const raw = String(val).trim();
+            const tokens = raw.split(/\s+/).filter(Boolean);
+            const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+            const refYear = refDate ? parseInt(refDate.slice(0, 4), 10) : todayAnchor.getFullYear();
+            const refMonth = refDate ? parseInt(refDate.slice(5, 7), 10) : (todayAnchor.getMonth() + 1);
+            const tokenRe = /^(\d{1,2})\/(\d{1,2})_([+-]?\d+(?:\.\d+)?)%?$/;
+
+            let unitsHtml = '';
+            for (let i = 0; i < tokens.length; i++) {
+                const token = tokens[i];
+                const match = token.match(tokenRe);
+                if (!match) {
+                    unitsHtml += `<span class="gap-text">${escapeHtml(token)}</span>`;
+                    continue;
+                }
+                const month = parseInt(match[1], 10);
+                const day = parseInt(match[2], 10);
+                const pctNum = parseFloat(match[3]);
+                const year = resolveGapYear(month, refYear, refMonth);
+                const weekday = weekdays[new Date(year, month - 1, day).getDay()];
+                const dateLabel = `${month}/${day}(${weekday})`;
+                const pctText = `${match[3]}%`;
+                let signClass = 'gap-zero';
+                if (!isNaN(pctNum) && pctNum > 0) signClass = 'gap-up';
+                else if (!isNaN(pctNum) && pctNum < 0) signClass = 'gap-down';
+                unitsHtml += `<div class="gap-unit"><div class="gap-date">${escapeHtml(dateLabel)}</div><div class="gap-pct ${signClass}">${escapeHtml(pctText)}</div></div>`;
+            }
+            return { html: `<div class="gap-stack">${unitsHtml}</div>`, dataVal: raw };
+        }
+
+        /**
+         * @param {Date} date
+         * @returns {string}
+         */
+        function formatDate(date) {
+            const y = date.getFullYear();
+            const m = (date.getMonth() + 1).toString().padStart(2, '0');
+            const d = date.getDate().toString().padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+
+        /**
+         * 將原始 JSON 列正規化為可篩選／排序的列物件。
+         * @param {object} stock
+         * @returns {object|null}
+         */
+        function normalizeRow(stock) {
+            if (!stock || typeof stock !== 'object') return null;
+            const date = String(stock.date || '');
+            const symbol = String(stock.symbol || '');
+            if (!date && !symbol) return null;
+            const time = String(stock.time || '');
+            const dateVal = date.replace(/-/g, '');
+            const dateNum = parseInt(dateVal, 10) || 0;
+            const display = {
+                date,
+                symbol,
+                yf_symbol: String(stock.yf_symbol || `${symbol}.TW`),
+                name: String(stock.name || ''),
+                time,
+                market_cap: displayOrDash(stock.market_cap),
+                pe: displayOrDash(stock.pe),
+                pb: displayOrDash(stock.pb),
+                eps_est: displayOrDash(stock.eps_est),
+                eps_reported: stock.eps_reported,
+                surprise_pct: stock.surprise_pct,
+                eps_last_q: displayOrDash(stock.eps_last_q),
+                eps_last_y: displayOrDash(stock.eps_last_y),
+                qoq: displayOrDash(stock.qoq),
+                yoy: displayOrDash(stock.yoy),
+                price: displayOrDash(stock.price),
+                gross_margin: displayOrDash(stock.gross_margin),
+                gap: stock.gap
+            };
+            return {
+                display,
+                vals: [
+                    dateNum,
+                    symbol,
+                    time,
+                    parseRaw(display.market_cap),
+                    parseRaw(display.pe),
+                    parseRaw(display.pb),
+                    parseRaw(display.eps_est),
+                    parseRaw(displayOrDash(stock.eps_reported)),
+                    parseRaw(displayOrDash(stock.surprise_pct)),
+                    parseRaw(display.eps_last_q),
+                    parseRaw(display.eps_last_y),
+                    parseRaw(display.qoq),
+                    parseRaw(display.yoy),
+                    parseRaw(display.price),
+                    parseRaw(display.gross_margin),
+                    displayOrDash(stock.gap)
+                ]
+            };
+        }
+
+        /**
+         * 延遲重建，避免連續改日期時重繪多次。
+         */
+        function scheduleRebuild() {
+            clearTimeout(rebuildTimer);
+            rebuildTimer = setTimeout(rebuildView, 40);
+        }
+
+        /**
+         * 依查詢起始日決定是否顯示「真實」「Surprise(%)」欄。
+         * 起始日為今日（含）之後則隱藏；僅當起始日早於今日（或未指定）才顯示。
+         * @param {{gStartNum: number|null}} criteria
+         */
+        function updateReportedColumnsVisibility(criteria) {
+            const table = document.getElementById('stockTable');
+            if (!table) return;
+            const showPastCols = !criteria.gStartNum || criteria.gStartNum < todayNum;
+            table.classList.toggle('hide-reported-cols', !showPastCols);
+        }
+
+        /**
+         * 依篩選與排序重繪可見列。
+         */
+        function rebuildView() {
+            const token = ++renderToken;
+            const criteria = getFilterCriteria();
+            updateReportedColumnsVisibility(criteria);
+            viewRows = allRows.filter(row => checkRowVisible(row, criteria));
+            applyCurrentSort(viewRows);
+
+            const tbody = document.getElementById('stockBody');
+            tbody.replaceChildren();
+
+            if (viewRows.length === 0) {
+                checkEmptyTable(0);
+                setLoading(false);
+                return;
+            }
+
+            renderRowsChunked(tbody, viewRows, token, 0);
+        }
+
+        /**
+         * 分塊插入列，避免一次寫入數千筆造成卡死。
+         * @param {HTMLElement} tbody
+         * @param {object[]} rows
+         * @param {number} token
+         * @param {number} start
+         */
+        function renderRowsChunked(tbody, rows, token, start) {
+            if (token !== renderToken) return;
+            const end = Math.min(start + RENDER_CHUNK, rows.length);
+            if (start === 0 && rows.length > RENDER_CHUNK) {
+                setLoading(true, `🔄 正在渲染 ${rows.length} 筆...`);
+            }
+
+            const template = document.createElement('template');
+            let html = '';
+            for (let i = start; i < end; i++) {
+                html += buildRowHtml(rows[i]);
+            }
+            template.innerHTML = html;
+            if (token !== renderToken) return;
+            tbody.appendChild(template.content);
+
+            if (end < rows.length) {
+                requestAnimationFrame(() => renderRowsChunked(tbody, rows, token, end));
+            } else {
+                setLoading(false);
+            }
+        }
+
+        /**
+         * 產生單一資料列 HTML。
+         * @param {object} row
+         * @returns {string}
+         */
+        function buildRowHtml(row) {
+            const stock = row.display;
+            const dateNum = row.vals[0];
+            const yoyClass = (parseFloat(stock.yoy) > 15) ? 'positive' : '';
+            const qoqClass = (parseFloat(stock.qoq) > 0) ? 'positive' : '';
+            const marginNum = parseFloat(stock.gross_margin);
+            let marginClass = '';
+            if (!isNaN(marginNum) && marginNum > 0) marginClass = 'positive';
+            else if (!isNaN(marginNum) && marginNum < 0) marginClass = 'negative';
+            const symbol = escapeHtml(stock.symbol);
+            const yfSymbol = stock.yf_symbol || `${stock.symbol}.TW`;
+            const tvCode = String(yfSymbol).toUpperCase().endsWith('.TWO')
+                ? `TPEX-${stock.symbol}`
+                : `TWSE-${stock.symbol}`;
+            const symbolLabel = stock.name
+                ? `${symbol} ${escapeHtml(stock.name)}`
+                : symbol;
+            const dateText = escapeHtml(stock.date);
+            const timeText = escapeHtml(stock.time);
+
+            let timeDisplay = `<span class="time-unk">${timeText}</span>`;
+            if (stock.time === '盤前') timeDisplay = `<span class="time-bmo">盤前</span>`;
+            else if (stock.time === '盤後') timeDisplay = `<span class="time-amc">盤後</span>`;
+
+            const showReported = dateNum >= reportedStartNum && dateNum < todayNum;
+            const showGap = dateNum >= todayNum && dateNum <= gapEndNum;
+            const reportedDisplay = formatOptionalValue(showReported, stock.eps_reported);
+            const surpriseInfo = formatSurpriseCell(showReported, stock.surprise_pct);
+            const gapDisplay = formatGapCell(showGap, stock.gap, stock.date);
+
+            return `<tr class="stock-row">
+                <td class="text-nowrap" data-val="${dateNum}">
+                    <div class="d-flex align-items-center justify-content-center">
+                        <a href="https://www.tradingview.com/symbols/${encodeURIComponent(tvCode)}/financials-overview/" target="_blank" rel="noopener" class="date-link">${dateText}</a>
+                        <div>
+                            <a href="https://goodinfo.tw/tw/StockDetail.asp?STOCK_ID=${encodeURIComponent(stock.symbol)}" target="_blank" rel="noopener" class="wf-btn w-link">G</a>
+                            <a href="https://www.cnyes.com/twstock/${encodeURIComponent(stock.symbol)}" target="_blank" rel="noopener" class="wf-btn f-link">C</a>
+                        </div>
+                    </div>
+                </td>
+                <td data-val="${symbol}"><a href="https://finance.yahoo.com/quote/${encodeURIComponent(yfSymbol)}" target="_blank" rel="noopener" class="stock-link ${yoyClass}">${symbolLabel}</a></td>
+                <td data-val="${timeText}">${timeDisplay}</td>
+                <td data-val="${escapeHtml(stock.market_cap)}">${escapeHtml(stock.market_cap)}</td>
+                <td data-val="${escapeHtml(stock.pe)}">${escapeHtml(stock.pe)}</td>
+                <td data-val="${escapeHtml(stock.pb)}">${escapeHtml(stock.pb)}</td>
+                <td data-val="${escapeHtml(stock.eps_est)}" style="color: #fff; font-weight: 500;">${escapeHtml(stock.eps_est)}</td>
+                <td data-val="${escapeHtml(reportedDisplay.dataVal)}" style="color: #fff; font-weight: 500;">${escapeHtml(reportedDisplay.text)}</td>
+                <td data-val="${escapeHtml(surpriseInfo.dataVal)}" class="${surpriseInfo.cssClass}">${escapeHtml(surpriseInfo.text)}</td>
+                <td data-val="${escapeHtml(stock.eps_last_q)}" class="text-secondary-dark">${escapeHtml(stock.eps_last_q)}</td>
+                <td data-val="${escapeHtml(stock.eps_last_y)}" class="text-secondary-dark">${escapeHtml(stock.eps_last_y)}</td>
+                <td data-val="${escapeHtml(stock.qoq)}" class="${qoqClass}">${stock.qoq === '-' ? '-' : `${escapeHtml(stock.qoq)}%`}</td>
+                <td data-val="${escapeHtml(stock.yoy)}" class="${yoyClass}">${stock.yoy === '-' ? '-' : `${escapeHtml(stock.yoy)}%`}</td>
+                <td data-val="${escapeHtml(stock.price)}"><span class="static-price">${escapeHtml(stock.price)}</span></td>
+                <td data-val="${escapeHtml(stock.gross_margin)}" class="${marginClass}">${stock.gross_margin === '-' ? '-' : `${escapeHtml(stock.gross_margin)}%`}</td>
+                <td data-val="${escapeHtml(gapDisplay.dataVal)}" class="gap-td">${gapDisplay.html}</td>
+            </tr>`;
+        }
+
+        /**
+         * 解析市值／百分比等原始字串為數值。
+         * @param {string} val
+         * @returns {number}
+         */
+        function parseRaw(val) {
+            if (!val || val === '-') return NaN;
+            const num = parseFloat(val);
+            if (!isNaN(num) && val.length == String(num).length) return num;
+
+            let multiplier = 1;
+            const lastChar = val.slice(-1);
+            if (lastChar === 'T' || lastChar === '兆') multiplier = 1e12;
+            else if (lastChar === 'B') multiplier = 1e9;
+            else if (lastChar === '億') multiplier = 1e8;
+            else if (lastChar === 'M') multiplier = 1e6;
+            else if (lastChar === '萬') multiplier = 1e4;
+            else if (lastChar === 'K') multiplier = 1e3;
+            else if (lastChar === '%') { }
+            else return num;
+
+            return parseFloat(val) * multiplier;
+        }
+
+        /**
+         * @returns {{gStartNum: number|null, gEndNum: number|null, filters: object}}
+         */
+        function getFilterCriteria() {
+            const globalStartVal = document.getElementById('startDate').value;
+            const globalEndVal = document.getElementById('endDate').value;
+            const getNumDate = (dStr) => dStr ? parseInt(dStr.replace(/-/g, ''), 10) : null;
+
+            return {
+                gStartNum: getNumDate(globalStartVal),
+                gEndNum: getNumDate(globalEndVal),
+                filters: columnFilters
+            };
+        }
+
+        /**
+         * @param {object} rowObj
+         * @param {{gStartNum: number|null, gEndNum: number|null, filters: object}} criteria
+         * @returns {boolean}
+         */
+        function checkRowVisible(rowObj, criteria) {
+            const { gStartNum, gEndNum, filters } = criteria;
+            const rowDateNum = rowObj.vals[0];
+
+            if (rowDateNum > 0) {
+                if (gStartNum && rowDateNum < gStartNum) return false;
+                if (gEndNum && rowDateNum > gEndNum) return false;
+            }
+
+            for (const colIndex in filters) {
+                const filter = filters[colIndex];
+                const cellVal = rowObj.vals[colIndex];
+
+                if (colIndex == 0) {
+                    if (filter.min && cellVal < filter.min) return false;
+                    if (filter.max && cellVal > filter.max) return false;
+                } else if (colIndex == 2) {
+                    const timeText = cellVal;
+                    const isBMO = (timeText === '盤前');
+                    const isAMC = (timeText === '盤後');
+                    const isOther = !isBMO && !isAMC;
+                    let match = false;
+                    if (filter.includes('盤前') && isBMO) match = true;
+                    if (filter.includes('盤後') && isAMC) match = true;
+                    if (filter.includes('other') && isOther) match = true;
+                    if (!match) return false;
+                } else if (colIndex == 1 || colIndex == 15) {
+                    const keyword = filter.keyword;
+                    if (keyword && !String(cellVal || '').toUpperCase().includes(keyword.toUpperCase())) return false;
+                } else if (typeof cellVal === 'number' && !isNaN(cellVal)) {
+                    if (filter.min !== null && cellVal < filter.min) return false;
+                    if (filter.max !== null && cellVal > filter.max) return false;
+                }
+            }
+            return true;
+        }
+
+        /**
+         * 依目前 sortState 排序（原地）。
+         * @param {object[]} rows
+         */
+        function applyCurrentSort(rows) {
+            if (sortState.col < 0) {
+                rows.sort((a, b) => {
+                    const dateA = a.vals[0];
+                    const dateB = b.vals[0];
+                    if (dateA !== dateB) return dateA - dateB;
+                    const yoyA = a.vals[12];
+                    const yoyB = b.vals[12];
+                    const na = (typeof yoyA !== 'number' || isNaN(yoyA)) ? -9999 : yoyA;
+                    const nb = (typeof yoyB !== 'number' || isNaN(yoyB)) ? -9999 : yoyB;
+                    return nb - na;
+                });
+                return;
+            }
+
+            const n = sortState.col;
+            const isAsc = sortState.asc;
+            rows.sort((objA, objB) => {
+                const valA = objA.vals[n];
+                const valB = objB.vals[n];
+                if (typeof valA === 'number' && typeof valB === 'number') {
+                    if (isNaN(valA)) return 1;
+                    if (isNaN(valB)) return -1;
+                    return isAsc ? valA - valB : valB - valA;
+                }
+                const strA = String(valA ?? '');
+                const strB = String(valB ?? '');
+                return isAsc ? strA.localeCompare(strB, 'zh-Hant') : strB.localeCompare(strA, 'zh-Hant');
+            });
+        }
+
+        /**
+         * 與舊版相容：篩選後重建表格。
+         */
+        function applyAllFilters() {
+            rebuildView();
+        }
+
+        /**
+         * @param {MouseEvent} event
+         * @param {number} idx
+         */
+        function toggleFilterPanel(event, idx) {
+            event.stopPropagation();
+            document.querySelectorAll('.filter-popup').forEach(p => { if (p.id !== 'popup-' + idx) p.style.display = 'none'; });
+            const popup = document.getElementById('popup-' + idx);
+            if (popup.style.display === 'block') {
+                popup.style.display = 'none';
+            } else {
+                popup.style.display = 'block';
+                const current = columnFilters[idx];
+                if (idx == 0) {
+                    document.getElementById('filter-start-0').value = current && current.rawMin ? current.rawMin : '';
+                    document.getElementById('filter-end-0').value = current && current.rawMax ? current.rawMax : '';
+                } else if (idx == 2) {
+                    const selected = current || [];
+                    document.getElementById('chk-bmo-2').checked = selected.includes('盤前');
+                    document.getElementById('chk-amc-2').checked = selected.includes('盤後');
+                    document.getElementById('chk-other-2').checked = selected.includes('other');
+                } else if (idx == 1 || idx == 15) {
+                    document.getElementById('min-' + idx).value = current && current.keyword ? current.keyword : '';
+                } else {
+                    document.getElementById('min-' + idx).value = current && current.min !== null && current.min !== undefined ? current.min : '';
+                    document.getElementById('max-' + idx).value = current && current.max !== null && current.max !== undefined ? current.max : '';
+                }
+            }
+        }
+
+        /**
+         * @param {number} idx
+         */
+        function confirmFilter(idx) {
+            const btn = document.getElementById('filter-btn-' + idx);
+            let filterData = null;
+            if (idx == 0) {
+                const startStr = document.getElementById('filter-start-0').value;
+                const endStr = document.getElementById('filter-end-0').value;
+                const parseDate = (s) => s ? parseInt(s.replace(/-/g, ''), 10) : null;
+                if (startStr || endStr) filterData = { min: parseDate(startStr), max: parseDate(endStr), rawMin: startStr, rawMax: endStr };
+            } else if (idx == 2) {
+                const checked = [];
+                if (document.getElementById('chk-bmo-2').checked) checked.push('盤前');
+                if (document.getElementById('chk-amc-2').checked) checked.push('盤後');
+                if (document.getElementById('chk-other-2').checked) checked.push('other');
+                if (checked.length > 0) filterData = checked;
+            } else if (idx == 1 || idx == 15) {
+                const keyword = (document.getElementById('min-' + idx).value || '').trim();
+                if (keyword) filterData = { keyword };
+            } else {
+                const minInput = document.getElementById('min-' + idx).value;
+                const maxInput = document.getElementById('max-' + idx).value;
+                const minVal = minInput === '' ? null : parseFloat(minInput);
+                const maxVal = maxInput === '' ? null : parseFloat(maxInput);
+                if (minVal !== null || maxVal !== null) filterData = { min: minVal, max: maxVal };
+            }
+
+            if (filterData === null) {
+                delete columnFilters[idx];
+                btn.classList.remove('active');
+            } else {
+                columnFilters[idx] = filterData;
+                btn.classList.add('active');
+            }
+            document.getElementById('popup-' + idx).style.display = 'none';
+            rebuildView();
+        }
+
+        /**
+         * @param {number} idx
+         */
+        function clearFilter(idx) {
+            if (idx == 0) {
+                document.getElementById('filter-start-0').value = '';
+                document.getElementById('filter-end-0').value = '';
+            } else if (idx == 2) {
+                document.getElementById('chk-bmo-2').checked = false;
+                document.getElementById('chk-amc-2').checked = false;
+                document.getElementById('chk-other-2').checked = false;
+            } else if (idx == 1 || idx == 15) {
+                document.getElementById('min-' + idx).value = '';
+            } else {
+                document.getElementById('min-' + idx).value = '';
+                document.getElementById('max-' + idx).value = '';
+            }
+            confirmFilter(idx);
+        }
+
+        /**
+         * @param {number} n
+         * @param {boolean} [keepDir=false]
+         */
+        function sortTable(n, keepDir = false) {
+            if (allRows.length === 0) return;
+            const table = document.getElementById('stockTable');
+            const th = table.tHead.rows[0].cells[n];
+
+            if (!keepDir) {
+                const currentDir = th.getAttribute('data-sort-dir');
+                const newDir = currentDir === 'desc' ? 'asc' : 'desc';
+                th.setAttribute('data-sort-dir', newDir);
+                sortState = { col: n, asc: newDir === 'asc' };
+                Array.from(table.tHead.rows[0].cells).forEach(cell => { if (cell !== th) cell.removeAttribute('data-sort-dir'); });
+            } else {
+                const currentDir = th.getAttribute('data-sort-dir') || 'desc';
+                sortState = { col: n, asc: currentDir === 'asc' };
+            }
+            rebuildView();
+        }
+
+        /**
+         * @param {number} count
+         */
+        function checkEmptyTable(count) {
+            const tbody = document.getElementById('stockBody');
+            let noDataRow = document.getElementById('custom-no-data');
+            if (count === 0) {
+                if (!noDataRow) {
+                    const tr = document.createElement('tr');
+                    tr.id = 'custom-no-data';
+                    tr.innerHTML = `<td colspan="${TABLE_COL_COUNT}" class="text-center py-5"><div style="opacity:0.5;"><h5 class="mt-2 text-white">😴 無符合資料</h5><small style="color:#777;">請調整篩選條件</small></div></td>`;
+                    tbody.appendChild(tr);
+                }
+            } else if (noDataRow) {
+                noDataRow.remove();
+            }
+        }
+
+        /**
+         * 讀取台灣加權指數收盤／最新價。
+         * @returns {Promise<void>}
+         */
+        async function loadTwiiIndex() {
+            const el = document.getElementById('twd-rate-value');
+            if (!el) return;
+            try {
+                const res = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/%5ETWII?interval=1d&range=1d');
+                const data = await res.json();
+                const meta = data?.chart?.result?.[0]?.meta;
+                const price = meta?.regularMarketPrice || meta?.previousClose;
+                if (price) {
+                    el.innerText = Number(price).toLocaleString('zh-TW', { maximumFractionDigits: 0 });
+                    return;
+                }
+                throw new Error('no index');
+            } catch (e) {
+                el.innerText = 'N/A';
+                el.style.color = '#ff6b6b';
+            }
+        }
+
+        let scrollRaf = 0;
+        document.addEventListener('scroll', () => {
+            if (scrollRaf) return;
+            scrollRaf = requestAnimationFrame(() => {
+                scrollRaf = 0;
+                const h = document.documentElement.scrollHeight - window.innerHeight;
+                const p = h > 0 ? (window.scrollY / h) * 100 : 100;
+                const bar = document.getElementById('scroll-progress-bar');
+                if (bar) bar.style.width = p + '%';
+            });
+        }, { passive: true });
+    </script>
+
+</body>
+</html>
